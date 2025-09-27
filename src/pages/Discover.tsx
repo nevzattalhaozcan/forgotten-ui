@@ -4,6 +4,7 @@ import Badge from "../components/common/Badge";
 import FilterBar, { type Filters } from "../components/discover/FilterBar";
 import SortSelect, { type SortKey } from "../components/discover/SortSelect";
 import { sampleClubs, type Club } from "../data/clubs";
+import { useNavigate } from "react-router-dom";
 
 function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
 
@@ -13,12 +14,15 @@ function fmtDate(iso?: string) {
     return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d);
 }
 
+
+
 const Discover: React.FC = () => {
     const [filters, setFilters] = useState<Filters>({ city: "", genre: "", minMembers: "", maxMembers: "", q: "" });
     const [sort, setSort] = useState<SortKey>("relevance");
 
     const cities = useMemo(() => uniq(sampleClubs.map(c => c.city)).sort(), []);
     const genres = useMemo(() => uniq(sampleClubs.flatMap(c => c.genres)).sort(), []);
+    const navigate = useNavigate();
 
     const filtered = useMemo(() => {
         const q = filters.q.toLowerCase();
@@ -87,7 +91,7 @@ const Discover: React.FC = () => {
                             <div className="text-sm text-gray-600">Members: {c.memberCount}</div>
                             <div className="text-sm text-gray-600">Next event: {fmtDate(c.nextEventISO)}</div>
                             <div className="pt-2">
-                                <button className="btn">View club</button>
+                                <button className="btn" onClick={() => navigate(`/club/${c.id}`)}>View club</button>
                             </div>
                         </div>
                     </Card>
