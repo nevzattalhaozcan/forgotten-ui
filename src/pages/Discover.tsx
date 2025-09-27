@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
-import FilterBar, { type Filters } from "../components/discover/FilterBar1";
+import FilterBar, { type Filters } from "../components/discover/FilterBar";
 import SortSelect, { type SortKey } from "../components/discover/SortSelect";
 import { sampleClubs, type Club } from "../data/clubs";
 
