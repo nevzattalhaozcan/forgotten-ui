@@ -1,7 +1,17 @@
-import React from "react";
-import { Link, NavLink } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { logout } from "../../lib/auth";
 
 const NavBar: React.FC = () => {
+    const nav = useNavigate();
+    const [authed, setAuthed] = useState(!!localStorage.getItem("token"));
+
+    useEffect(() => {
+        const onStorage = () => setAuthed(!!localStorage.getItem("token"));
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
+
     const linkStyle: React.CSSProperties = { marginRight: 12 };
     const active: React.CSSProperties = { textDecoration: "underline" };
 
@@ -12,6 +22,25 @@ const NavBar: React.FC = () => {
             <NavLink to="/discover" style={({ isActive }) => ({ ...linkStyle, ...(isActive ? active : {}) })}>Discover</NavLink>
             <NavLink to="/user" style={({ isActive }) => ({ ...linkStyle, ...(isActive ? active : {}) })}>User</NavLink>
             <NavLink to="/club" style={({ isActive }) => ({ ...linkStyle, ...(isActive ? active : {}) })}>Club</NavLink>
+
+            <div style={{ marginLeft: "auto" }}>
+                {!authed ? (
+                    <NavLink to="/login" style={({ isActive }) => ({ ...linkStyle, ...(isActive ? active : {}) })}>
+                        Login
+                    </NavLink>
+                ) : (
+                    <button
+                        className="btn"
+                        onClick={() => {
+                            logout();
+                            setAuthed(false);
+                            nav("/login");
+                        }}
+                    >
+                        Logout
+                    </button>
+                )}
+            </div>
         </nav>
     );
 };

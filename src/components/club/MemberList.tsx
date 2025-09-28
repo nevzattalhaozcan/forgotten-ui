@@ -12,6 +12,11 @@ const MemberList: React.FC<{ members: ClubMember[]; onClose: () => void; }> = ({
                         <div>
                             <div className="font-medium">{m.name}</div>
                             <div className="text-xs text-gray-500">Role: {m.role}</div>
+                            {m.is_approved === false && (
+                                <span className="ml-2 inline-block rounded-xl bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800 align-middle">
+                                    Pending
+                                </span>
+                            )}
                         </div>
                         <div className="text-xs text-gray-500">Joined {new Date(m.joinedISO).toLocaleDateString()}</div>
                     </li>

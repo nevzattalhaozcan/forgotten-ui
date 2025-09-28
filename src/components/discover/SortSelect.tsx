@@ -1,27 +1,27 @@
 import React from "react";
 
-export type SortKey = "relevance" | "name" | "members" | "newest" | "nextEvent";
+export type SortKey = "relevance" | "name" | "members" | "newest" | "nextEvent" | "rating";
 
-type Props = {
+interface SortSelectProps {
     value: SortKey;
-    onChange: (v: SortKey) => void;
-};
+    onChange: (sort: SortKey) => void;
+}
 
-const SortSelect: React.FC<Props> = ({ value, onChange }) => (
-    <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Sort by</span>
+const SortSelect: React.FC<SortSelectProps> = ({ value, onChange }) => {
+    return (
         <select
-            className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
             value={value}
             onChange={(e) => onChange(e.target.value as SortKey)}
         >
             <option value="relevance">Relevance</option>
-            <option value="name">Name A–Z</option>
-            <option value="members">Member count</option>
-            <option value="newest">Newest clubs</option>
-            <option value="nextEvent">Soonest next event</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="members">Most Members</option>
+            <option value="rating">Highest Rated</option>
+            <option value="newest">Newest</option>
+            <option value="nextEvent">Next Event</option>
         </select>
-    </div>
-);
+    );
+};
 
 export default SortSelect;

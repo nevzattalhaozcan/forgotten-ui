@@ -1,6 +1,6 @@
 import type { Role } from "./session";
 
-export type ClubMember = { id: string; name: string; role: Role; joinedISO: string };
+export type ClubMember = { id: string; name: string; role: Role; joinedISO: string; is_approved: boolean };
 export type Post = {
     id: string;
     authorId: string;
@@ -31,9 +31,18 @@ export const clubDetail: ClubDetail = {
     description: "Monthly discussions of contemporary literature.",
     ownerId: "u100",
     members: [
-        { id: "u100", name: "Ece Kaya", role: "owner", joinedISO: "2023-01-03T10:00:00Z" },
-        { id: "u1", name: "Ada Demir", role: "member", joinedISO: "2024-05-02T09:00:00Z" },
-        { id: "u55", name: "Mert Aksoy", role: "moderator", joinedISO: "2023-12-12T09:00:00Z" },
+        {
+            id: "u100", name: "Ece Kaya", role: "owner", joinedISO: "2023-01-03T10:00:00Z",
+            is_approved: false
+        },
+        {
+            id: "u1", name: "Ada Demir", role: "member", joinedISO: "2024-05-02T09:00:00Z",
+            is_approved: false
+        },
+        {
+            id: "u55", name: "Mert Aksoy", role: "moderator", joinedISO: "2023-12-12T09:00:00Z",
+            is_approved: false
+        },
     ],
     currentBook: { title: "Snow", author: "Orhan Pamuk", progressPct: 45, annotations: 18, discussions: 5 },
     nextGathering: { id: "g1", dateISO: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString(), location: "Café Saray, Şişli", agenda: "Ch. 10–18 + motifs" },

@@ -4,10 +4,11 @@ type Props = {
     title?: string;
     children: React.ReactNode;
     actions?: React.ReactNode;
+    className?: string;
 };
 
-const Card: React.FC<Props> = ({ title, children, actions }) => (
-    <div className="card">
+const Card: React.FC<Props> = ({ title, children, actions, className }) => (
+    <div className={`card ${className}`}>
         {(title || actions) && (
             <div className="card-header flex items-center justify-between">
                 {title && <h3 className="text-lg font-semibold">{title}</h3>}
