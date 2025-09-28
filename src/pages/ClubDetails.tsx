@@ -342,11 +342,32 @@ const ClubDetails: React.FC = () => {
                       </svg>
                       Sign In to Join
                     </Link>
-                    <Link to="/register" className="btn-outline">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                      </svg>
-                      Create Account
+                    
+                    {/* Enhanced Create Account Button */}
+                    <Link 
+                      to="/register" 
+                      className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 hover:from-emerald-600 hover:via-teal-700 hover:to-cyan-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl group border-0"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center">
+                        <svg className="w-5 h-5 mr-3 group-hover:rotate-[360deg] transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        <span className="tracking-wide">Create Account</span>
+                        <div className="ml-2 opacity-75 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition-opacity duration-300 -z-10"></div>
+                      
+                      {/* Animated background sparkles */}
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="absolute top-2 left-4 w-1 h-1 bg-white rounded-full animate-ping"></div>
+                        <div className="absolute bottom-3 right-6 w-1 h-1 bg-white/80 rounded-full animate-pulse"></div>
+                        <div className="absolute top-1/2 right-4 w-0.5 h-0.5 bg-white/60 rounded-full animate-bounce"></div>
+                      </div>
                     </Link>
                   </>
                 )}
