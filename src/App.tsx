@@ -5,6 +5,8 @@ import Home from "./pages/Home";
 import Discover from "./pages/Discover";
 import UserDashboard from "./pages/UserDashboard";
 import ClubDashboard from "./pages/ClubDashboard";
+import ClubDetails from "./pages/ClubDetails";
+import MyClubs from "./pages/MyClubs";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -30,9 +32,13 @@ const router = createBrowserRouter(
       <Route path="user" element={
         <RequireAuth><UserDashboard /></RequireAuth>
       } />
+      <Route path="my-clubs" element={
+        <RequireAuth><MyClubs /></RequireAuth>
+      } />
       <Route path="club">
         <Route index element={<RequireAuth><ClubDashboard /></RequireAuth>} />
         <Route path=":id" element={<RequireAuth><ClubDashboard /></RequireAuth>} />
+        <Route path=":id/details" element={<ClubDetails />} />
       </Route>
       <Route path="*" element={<div>Not Found</div>} />
     </Route>

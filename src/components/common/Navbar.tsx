@@ -66,7 +66,7 @@ const NavBar: React.FC = () => {
                             Profile
                         </NavLink>
                         <NavLink 
-                            to="/club" 
+                            to="/my-clubs" 
                             className={({ isActive }) => 
                                 `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                                     isActive 

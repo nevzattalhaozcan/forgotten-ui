@@ -262,7 +262,7 @@ export default function Discover() {
                             <div className="pt-2">
                                 <button 
                                     className="btn w-full" 
-                                    onClick={() => navigate(`/club/${c.id}`)}
+                                    onClick={() => navigate(`/club/${c.id}/details`)}
                                 >
                                     View Club
                                 </button>
