@@ -30,14 +30,14 @@ const MyClubs: React.FC = () => {
 
         // Filter clubs where user is a member
         const userClubs = clubs.filter(club => 
-          club.members.some(member => String(member.user_id) === userId)
+          club.members && club.members.some(member => String(member.user_id) === userId)
         );
         setMyClubs(userClubs);
 
         // Get recommended clubs (public clubs user hasn't joined)
         const recommended = clubs.filter(club => 
           !club.is_private && 
-          !club.members.some(member => String(member.user_id) === userId)
+          (!club.members || !club.members.some(member => String(member.user_id) === userId))
         ).slice(0, 6);
         setRecommendedClubs(recommended);
 
@@ -52,6 +52,7 @@ const MyClubs: React.FC = () => {
   }, [isLoggedIn, userId, navigate]);
 
   const getUserRole = (club: ClubApi): string => {
+    if (!club.members) return "member";
     const userMember = club.members.find(member => String(member.user_id) === userId);
     if (!userMember) return "member";
     return userMember.role === "club_admin" ? "owner" : userMember.role;
