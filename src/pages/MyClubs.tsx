@@ -126,26 +126,35 @@ const MyClubs: React.FC = () => {
           <h1 className="section-title">My Clubs</h1>
           <p className="text-muted mt-1">Manage your reading communities and discover new ones</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={loadClubs}
             disabled={loading}
-            className={`btn-outline ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`
+              px-4 py-2 rounded-lg border font-medium text-sm transition-all duration-200 shadow-sm
+              ${loading 
+                ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed' 
+                : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md'
+              }
+            `}
             title="Refresh clubs"
           >
-            <svg className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-4 h-4 mr-2 transition-transform duration-200 ${loading ? 'animate-spin' : 'hover:rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh'}
           </button>
-          <Link to="/discover" className="btn-outline">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Link 
+            to="/discover" 
+            className="px-4 py-2 rounded-lg border font-medium text-sm transition-all duration-200 shadow-sm bg-gradient-to-r from-blue-500 to-blue-600 border-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg"
+          >
+            <svg className="w-4 h-4 mr-2 transition-transform duration-200 hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             Discover Clubs
           </Link>
-          <button className="btn">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button className="px-4 py-2 rounded-lg border font-medium text-sm transition-all duration-200 shadow-sm bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg">
+            <svg className="w-4 h-4 mr-2 transition-transform duration-200 hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Create Club
@@ -172,7 +181,7 @@ const MyClubs: React.FC = () => {
         {myClubs.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {myClubs.map((club) => (
-              <Card key={club.id} variant="elevated" className="group">
+              <Card key={club.id} variant="elevated" className="group hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
                 <div className="space-y-4">
                   {/* Club Header */}
                   <div className="flex items-start justify-between">
@@ -233,17 +242,18 @@ const MyClubs: React.FC = () => {
                   <div className="flex gap-2 pt-2">
                     <Link 
                       to={`/club/${club.id}`}
-                      className="btn btn-sm flex-1 text-center"
+                      className="flex-1 text-center px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg shadow-sm"
                     >
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      Open
+                      Open Club
                     </Link>
                     <Link 
                       to={`/club/${club.id}/details`}
-                      className="btn-outline btn-sm"
+                      className="px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md shadow-sm"
+                      title="View club details"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -294,7 +304,7 @@ const MyClubs: React.FC = () => {
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {recommendedClubs.map((club) => (
-              <Card key={club.id} variant="default" className="group">
+              <Card key={club.id} variant="default" className="group hover:shadow-lg transition-all duration-300 hover:scale-[1.01]">
                 <div className="space-y-4">
                   {/* Club Header */}
                   <div className="flex items-start justify-between">
@@ -336,7 +346,7 @@ const MyClubs: React.FC = () => {
                   <div className="flex gap-2 pt-2">
                     <Link 
                       to={`/club/${club.id}/details`}
-                      className="btn-outline btn-sm flex-1 text-center"
+                      className="flex-1 text-center px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 hover:shadow-md shadow-sm"
                     >
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -344,7 +354,7 @@ const MyClubs: React.FC = () => {
                       </svg>
                       View Details
                     </Link>
-                    <button className="btn btn-sm">
+                    <button className="px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg shadow-sm">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                       </svg>

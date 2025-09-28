@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
 import { getClub, joinClub, leaveClub, getJoinedClubIds, type ClubApi } from "../lib/clubs";
-import { listClubEvents } from "../lib/events";
+import { listClubEvents, listPublicEvents } from "../lib/events";
 import { listPosts } from "../lib/posts";
 
 type ClubEvent = {
@@ -65,13 +65,40 @@ const ClubDetails: React.FC = () => {
         const clubData = await getClub(id);
         setClub(clubData);
 
-        // Fetch public events for this club
+        // Check if user is a member (after getting club data)
+        const userIsMember = clubData?.members && userId 
+          ? clubData.members.some(member => String(member.user_id) === userId)
+          : userId && id
+          ? getJoinedClubIds(userId).includes(Number(id))
+          : false;
+
+        // Fetch events for this club (handle 403 for non-members)
         try {
-          const eventsData = await listClubEvents(id);
-          const publicEvents = eventsData.filter(event => event.is_public);
-          setEvents(publicEvents);
+          if (userIsMember) {
+            // If user is a member, try to get all club events
+            const eventsData = await listClubEvents(id);
+            setEvents(eventsData);
+          } else {
+            // If user is not a member, get only public events for this club
+            const publicEvents = await listPublicEvents();
+            const clubPublicEvents = publicEvents.filter(event => 
+              String(event.club_id) === String(id)
+            );
+            setEvents(clubPublicEvents);
+          }
         } catch (e) {
-          console.warn("Could not load events:", e);
+          console.warn("Could not load club events, trying public events:", e);
+          // Fallback: try to get public events if club events fail
+          try {
+            const publicEvents = await listPublicEvents();
+            const clubPublicEvents = publicEvents.filter(event => 
+              String(event.club_id) === String(id)
+            );
+            setEvents(clubPublicEvents);
+          } catch (publicError) {
+            console.warn("Could not load public events:", publicError);
+            setEvents([]);
+          }
         }
 
         // Fetch recent public posts for this club
@@ -105,7 +132,7 @@ const ClubDetails: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [id, navigate]);
+  }, [id, navigate, userId]);
 
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat(undefined, {
@@ -443,8 +470,15 @@ const ClubDetails: React.FC = () => {
           )}
 
           {/* Upcoming Events */}
-          {events.length > 0 && (
+          {events.length > 0 ? (
             <Card title="Upcoming Events" variant="elevated">
+              {!isMember && (
+                <div className="mb-3 p-2 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-600">
+                    🌍 Showing public events only. Join to see all club events!
+                  </p>
+                </div>
+              )}
               <div className="space-y-3">
                 {events.slice(0, 3).map((event) => (
                   <div key={event.id} className="border-b border-slate-100 last:border-b-0 pb-3 last:pb-0">
@@ -462,16 +496,28 @@ const ClubDetails: React.FC = () => {
                           </p>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {event.event_type === "online" ? "💻" : 
-                         event.event_type === "in_person" ? "📍" : "🔀"}
-                      </Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {event.event_type === "online" ? "💻" : 
+                           event.event_type === "in_person" ? "📍" : "🔀"}
+                        </Badge>
+                        {event.is_public && (
+                          <Badge variant="success" className="text-xs">🌍</Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             </Card>
-          )}
+          ) : !isMember ? (
+            <Card title="Upcoming Events" variant="elevated">
+              <div className="text-center py-4">
+                <p className="text-sm text-muted mb-2">No public events available</p>
+                <p className="text-xs text-blue-600">Join the club to see all events!</p>
+              </div>
+            </Card>
+          ) : null}
 
           {/* Club Owner */}
           <Card title="Club Leader" variant="elevated">
