@@ -59,7 +59,7 @@ export async function getHomeData() {
     const posts = await listPosts();
     const announcements = posts.filter(p => p.type === "announcement");
     
-    // Get user's clubs (clubs they are members of)
+    // Get user's clubs (clubs they are members of) - this is now much more efficient
     const userClubs = await getUserClubs();
     
     // If user has no clubs, fetch public events instead

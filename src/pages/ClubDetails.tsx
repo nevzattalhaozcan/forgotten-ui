@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
-import { getClub, joinClub, leaveClub, getJoinedClubIds, type ClubApi } from "../lib/clubs";
+import { getClub, joinClub, leaveClub, type ClubApi } from "../lib/clubs";
 import { listClubEvents, listPublicEvents } from "../lib/events";
 import { listPosts } from "../lib/posts";
 
@@ -46,8 +46,6 @@ const ClubDetails: React.FC = () => {
   // Check if user is a member
   const isMember = club?.members && userId 
     ? club.members.some(member => String(member.user_id) === userId)
-    : userId && id
-    ? getJoinedClubIds(userId).includes(Number(id))
     : false;
 
   useEffect(() => {
@@ -68,8 +66,6 @@ const ClubDetails: React.FC = () => {
         // Check if user is a member (after getting club data)
         const userIsMember = clubData?.members && userId 
           ? clubData.members.some(member => String(member.user_id) === userId)
-          : userId && id
-          ? getJoinedClubIds(userId).includes(Number(id))
           : false;
 
         // Fetch events for this club (handle 403 for non-members)
