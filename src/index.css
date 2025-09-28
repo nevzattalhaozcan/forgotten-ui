@@ -141,3 +141,66 @@
     @apply bg-white/60 backdrop-blur-sm border border-white/40;
   }
 }
+
+/* Mobile optimizations */
+@layer components {
+  /* Mobile-friendly container */
+  @media (max-width: 640px) {
+    .container {
+      @apply px-3 py-4;
+    }
+    
+    /* Smaller buttons on mobile */
+    .btn {
+      @apply px-3 py-2 text-sm;
+      @apply hover:scale-100 active:scale-95;
+    }
+    
+    .btn-sm {
+      @apply px-2.5 py-1.5 text-xs;
+    }
+    
+    /* Better card spacing on mobile */
+    .card {
+      @apply rounded-lg;
+    }
+    
+    .card-header {
+      @apply px-4 py-3;
+    }
+    
+    .card-body {
+      @apply px-4 py-3;
+    }
+    
+    /* Mobile grid improvements */
+    .grid {
+      @apply gap-3;
+    }
+    
+    /* Section headers */
+    .section-title {
+      @apply text-xl;
+    }
+    
+    .section-subtitle {
+      @apply text-base;
+    }
+    
+    /* Form improvements */
+    input, select, textarea {
+      @apply text-base; /* Prevents zoom on iOS */
+    }
+  }
+  
+  /* Touch-friendly tap targets */
+  @media (hover: none) {
+    .btn:hover {
+      @apply scale-100;
+    }
+    
+    .card:hover {
+      @apply shadow-sm border-slate-200/60 bg-white/80;
+    }
+  }
+}
