@@ -76,3 +76,15 @@ export async function listClubs(): Promise<ClubApi[]> {
   const res: ClubsListResponse = await api("/api/v1/clubs/");
   return Array.isArray(res) ? res : (res.clubs ?? []);
 }
+
+export async function joinClub(clubId: string | number): Promise<{ message: string }> {
+  return await api<{ message: string }>(`/api/v1/clubs/${clubId}/join`, {
+    method: "POST"
+  });
+}
+
+export async function leaveClub(clubId: string | number): Promise<{ message: string }> {
+  return await api<{ message: string }>(`/api/v1/clubs/${clubId}/leave`, {
+    method: "POST"
+  });
+}

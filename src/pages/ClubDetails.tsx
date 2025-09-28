@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
-import { getClub, type ClubApi } from "../lib/clubs";
+import { getClub, joinClub, leaveClub, type ClubApi } from "../lib/clubs";
 import { listClubEvents } from "../lib/events";
 import { listPosts } from "../lib/posts";
 
@@ -38,8 +38,15 @@ const ClubDetails: React.FC = () => {
   const [club, setClub] = useState<ClubApi | null>(null);
   const [events, setEvents] = useState<ClubEvent[]>([]);
   const [posts, setPosts] = useState<ClubPost[]>([]);
+  const [joinLoading, setJoinLoading] = useState(false);
 
   const isLoggedIn = !!localStorage.getItem("token");
+  const userId = localStorage.getItem("userId");
+  
+  // Check if user is a member
+  const isMember = club?.members && userId 
+    ? club.members.some(member => String(member.user_id) === userId)
+    : false;
 
   useEffect(() => {
     if (!id) {
@@ -103,6 +110,33 @@ const ClubDetails: React.FC = () => {
       dateStyle: "medium",
       timeStyle: "short"
     }).format(new Date(dateString));
+  };
+
+  const handleJoinClub = async () => {
+    if (!club || !id) return;
+    
+    setJoinLoading(true);
+    setError(null);
+    
+    try {
+      if (isMember) {
+        await leaveClub(id);
+      } else {
+        await joinClub(id);
+      }
+      
+      // Refresh club data to get updated membership
+      const updatedClub = await getClub(id);
+      setClub(updatedClub);
+      
+    } catch (error) {
+      console.error('Error joining/leaving club:', error);
+      const errorMessage = error as { detail?: { message?: string }; message?: string };
+      setError(errorMessage?.detail?.message || errorMessage?.message || 
+               (isMember ? 'Failed to leave club' : 'Failed to join club'));
+    } finally {
+      setJoinLoading(false);
+    }
   };
 
   const getAuthorName = (user?: ClubPost["user"]) => {
@@ -221,11 +255,19 @@ const ClubDetails: React.FC = () => {
               <div className="flex gap-3">
                 {isLoggedIn ? (
                   <>
-                    <button className="btn">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                      </svg>
-                      Join Club
+                    <button 
+                      onClick={handleJoinClub}
+                      disabled={joinLoading}
+                      className={`btn ${joinLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {joinLoading ? (
+                        <div className="animate-spin w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full"></div>
+                      ) : (
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMember ? "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" : "M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"} />
+                        </svg>
+                      )}
+                      {isMember ? 'Leave Club' : 'Join Club'}
                     </button>
                     <Link to={`/club/${club.id}`} className="btn-outline">
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
