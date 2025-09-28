@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { login } from "../lib/auth";
 import Card from "../components/common/Card";
@@ -11,6 +11,16 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if there's a success message from registration
+    if (loc.state?.message) {
+      setSuccessMessage(loc.state.message);
+      // Clear the message from location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [loc.state]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +50,17 @@ const Login: React.FC = () => {
           <h1 className="section-title mb-2">Welcome back</h1>
           <p className="text-muted">Sign in to your BookClub account</p>
         </div>
+
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm text-green-700">{successMessage}</span>
+            </div>
+          </div>
+        )}
 
         <Card variant="elevated" className="overflow-hidden">
           <form className="space-y-6" onSubmit={onSubmit}>

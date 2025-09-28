@@ -6,6 +6,7 @@ import Discover from "./pages/Discover";
 import UserDashboard from "./pages/UserDashboard";
 import ClubDashboard from "./pages/ClubDashboard";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = localStorage.getItem("token");
@@ -25,6 +26,7 @@ const router = createBrowserRouter(
       <Route index element={<Home />} />
       <Route path="discover" element={<Discover />} />
       <Route path="login" element={<Login />} />
+      <Route path="register" element={<Register />} />
       <Route path="user" element={
         <RequireAuth><UserDashboard /></RequireAuth>
       } />

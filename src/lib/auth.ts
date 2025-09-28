@@ -2,11 +2,48 @@ import { api } from "./api";
 
 export type Profile = {
   id: string | number;
+  username: string;
   email: string;
-  username?: string;
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  role: string;
+  avatar_url?: string;
+  location?: string;
+  favorite_genres?: string[];
+  bio?: string;
+  reading_goal: number;
+  books_read: number;
+  badges?: unknown;
+  is_online: boolean;
+  last_seen?: string;
+  created_at: string;
+  updated_at?: string;
 };
+
+export type RegisterData = {
+  username: string;
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  is_active?: boolean;
+  role?: string;
+  avatar_url?: string;
+  location?: string;
+  favorite_genres?: string[];
+  bio?: string;
+  reading_goal?: number;
+};
+
+export async function register(userData: RegisterData) {
+  const { message, user } = await api<{ message: string; user: Profile }>(
+    "/api/v1/auth/register",
+    { method: "POST", body: JSON.stringify(userData) },
+    { auth: false }
+  );
+  return { message, user };
+}
 
 export async function login(email: string, password: string) {
   // POST /api/v1/auth/login
