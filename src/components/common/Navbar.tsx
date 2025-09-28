@@ -53,30 +53,34 @@ const NavBar: React.FC = () => {
                         >
                             Discover
                         </NavLink>
-                        <NavLink 
-                            to="/user" 
-                            className={({ isActive }) => 
-                                `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                    isActive 
-                                        ? "bg-blue-50 text-blue-700 shadow-sm" 
-                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                                }`
-                            }
-                        >
-                            Profile
-                        </NavLink>
-                        <NavLink 
-                            to="/my-clubs" 
-                            className={({ isActive }) => 
-                                `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                    isActive 
-                                        ? "bg-blue-50 text-blue-700 shadow-sm" 
-                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                                }`
-                            }
-                        >
-                            My Clubs
-                        </NavLink>
+                        {authed && (
+                            <>
+                                <NavLink 
+                                    to="/user" 
+                                    className={({ isActive }) => 
+                                        `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                            isActive 
+                                                ? "bg-blue-50 text-blue-700 shadow-sm" 
+                                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                                        }`
+                                    }
+                                >
+                                    Profile
+                                </NavLink>
+                                <NavLink 
+                                    to="/my-clubs" 
+                                    className={({ isActive }) => 
+                                        `px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                            isActive 
+                                                ? "bg-blue-50 text-blue-700 shadow-sm" 
+                                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                                        }`
+                                    }
+                                >
+                                    My Clubs
+                                </NavLink>
+                            </>
+                        )}
                     </div>
 
                     {/* Auth Section */}

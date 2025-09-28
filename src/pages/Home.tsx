@@ -80,6 +80,21 @@ const Home: React.FC = () => {
         const clubMap = new Map<string|number, ClubApi>();
         (clubs || []).forEach(club => clubMap.set(club.id, club));
 
+        // Get current user info for filtering private events
+        const token = localStorage.getItem("token");
+        const userId = localStorage.getItem("userId");
+        const isLoggedIn = !!token;
+
+        // Create set of club IDs where user is a member
+        const userClubIds = new Set<string|number>();
+        if (isLoggedIn && userId) {
+          (clubs || []).forEach(club => {
+            if (club.members && club.members.some(member => String(member.user_id) === userId)) {
+              userClubIds.add(club.id);
+            }
+          });
+        }
+
         const mappedAnns: AnnView[] = announcements
           .sort((a,b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
           .slice(0, 6)
@@ -96,6 +111,13 @@ const Home: React.FC = () => {
         const now = Date.now();
         const mappedEvs: EventView[] = events
           .filter(e => e.start_time && new Date(e.start_time).getTime() >= now)
+          // Filter private events: show only if user is logged in AND is a member of the club
+          .filter(e => {
+            // Always show public events
+            if (e.is_public) return true;
+            // For private events, only show if user is logged in and is a club member
+            return isLoggedIn && userClubIds.has(e.club_id);
+          })
           .sort((a,b) => new Date(a.start_time ?? 0).getTime() - new Date(b.start_time ?? 0).getTime())
           .slice(0, 6)
           .map((e: EventApi) => ({
@@ -284,7 +306,7 @@ const Home: React.FC = () => {
                     {a.content}
                   </p>
                   <div className="pt-2 flex gap-2">
-                    <button className="btn btn-sm" onClick={() => nav(`/club/${a.clubId}`)}>
+                    <button className="btn btn-sm" onClick={() => nav(`/club/${a.clubId}/details`)}>
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -397,7 +419,7 @@ const Home: React.FC = () => {
                     </div>
                   )}
                   <div className="flex gap-2 pt-1">
-                    <button className="btn btn-sm flex-1" onClick={() => nav(`/club/${e.clubId}`)}>
+                    <button className="btn btn-sm flex-1" onClick={() => nav(`/club/${e.clubId}/details`)}>
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
