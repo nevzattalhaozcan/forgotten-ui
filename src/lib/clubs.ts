@@ -56,6 +56,11 @@ export type ClubApi = {
   members: ClubMember[];
   created_at: string;
   updated_at: string;
+  current_book?: {
+    title?: string;
+    author?: string;
+    progress?: number;
+  };
 };
 
 type ClubResponse = ClubApi | { club: ClubApi };

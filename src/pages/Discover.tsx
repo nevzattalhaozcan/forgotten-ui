@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
 import FilterBar, { type Filters } from "../components/discover/FilterBar";
 import SortSelect, { type SortKey } from "../components/discover/SortSelect";
-import { listClubs, type ClubApi } from "../lib/clubs";
+import { listClubs } from "../lib/clubs";
 
 type ClubView = {
     id: string | number;

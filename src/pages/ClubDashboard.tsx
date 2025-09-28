@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import Card from "../components/common/Card";
@@ -13,21 +13,20 @@ import DiscussionComposer from "../components/discuss/DiscussionComposer";
 import DiscussionThreadCard from "../components/discuss/DiscussionThread";
 import AnnotationsPanel from "../components/discuss/AnnotationsPanel";
 
-import { getClub, type ClubApi } from "../lib/clubs";
-import { updateMember as updateMemberApi, removeMember as removeMemberApi, type MemberApi } from "../lib/members";
-import { listPosts, createPost, type PostApi } from "../lib/posts";
-import { listClubEvents, type EventApi } from "../lib/events"; // optional
+import { getClub } from "../lib/clubs";
+import { listPosts, createPost } from "../lib/posts";
+import { listClubEvents } from "../lib/events"; // optional
 
 import { currentSession } from "../data/session";
-import { samplePolls as pollsSeed, type Poll } from "../data/polls";
-import { sampleThreads as threadsSeed, type DiscussionThread, sampleAnnotations as annSeed, type Annotation } from "../data/threads";
+import { sampleThreads as threadsSeed, sampleAnnotations as annSeed } from "../data/threads";
+import type { DiscussionThread, Annotation } from "../data/threads";
 import ModerationPanel from "../components/club/ModerationPanel";
 
 // Shape expected by your existing components
-type ClubMember = { id: string | number; name: string; role: "member" | "moderator" | "owner"; joinedISO: string; is_approved: boolean };
+type ClubMember = { id: string; name: string; role: "member" | "moderator" | "owner"; joinedISO: string; is_approved: boolean };
 type FeedPost = {
-    id: string | number;
-    authorId: string | number;
+    id: string;
+    authorId: string;
     authorName: string;
     authorRole: "member" | "moderator" | "owner";
     type: "post" | "announcement";
@@ -43,7 +42,6 @@ export default function ClubDashboard() {
     // Loading & error
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [pendingId, setPendingId] = useState<string | number | null>(null);
 
     // Live club state
     const [clubName, setClubName] = useState("Club");
@@ -58,77 +56,40 @@ export default function ClubDashboard() {
     // UI states you already had
     const [showMembers, setShowMembers] = useState(false);
     const [showModeration, setShowModeration] = useState(false); // hook up later to backend moderation
-    const [polls] = useState<Poll[]>(pollsSeed);
 
     // Tabs + discussions/annotations (mock)
     const [tab, setTab] = useState<"feed" | "discuss" | "notes">("feed");
     const [threads, setThreads] = useState<DiscussionThread[]>(threadsSeed);
     const [annotations, setAnnotations] = useState<Annotation[]>(annSeed);
 
-    const isOwner = useMemo(() => {
-        // If API returns owner id in club detail, compare with session user
-        // For now we only role-gate via session.ts
-        return currentSession.roleInClub === "owner";
-    }, []);
-
     // clubId comes from useParams
-    async function promote(userId: string | number) {
-        // optimistic update
-        setMembers(ms => ms.map(m => m.id === userId ? { ...m, role: "moderator" } : m));
-        try {
-            await updateMemberApi(clubId!, userId, { role: "moderator" });
-        } catch (e) {
-            // rollback on error
-            setMembers(ms => ms.map(m => m.id === userId ? { ...m, role: "member" } : m));
-            alert("Failed to promote member");
-        }
-    }
+    // Member management functions (stub for now - not implemented in backend)
+    const promoteMember = async (userId: string | number) => {
+        console.log("Promote member", userId);
+        // TODO: implement when backend API is ready
+    };
 
-    async function demote(userId: string | number) {
-        setMembers(ms => ms.map(m => m.id === userId ? { ...m, role: "member" } : m));
-        try {
-            await updateMemberApi(clubId!, userId, { role: "member" });
-        } catch (e) {
-            setMembers(ms => ms.map(m => m.id === userId ? { ...m, role: "moderator" } : m));
-            alert("Failed to demote member");
-        }
-    }
+    const demoteMember = async (userId: string | number) => {
+        console.log("Demote member", userId);  
+        // TODO: implement when backend API is ready
+    };
 
-    async function remove(userId: string | number) {
-        const prev = members;
-        setMembers(ms => ms.filter(m => m.id !== userId));
-        try {
-            await removeMemberApi(clubId!, userId);
-        } catch (e) {
-            setMembers(prev); // rollback
-            alert("Failed to remove member");
-        }
-    }
+    const removeMember = async (userId: string | number) => {
+        console.log("Remove member", userId);
+        // TODO: implement when backend API is ready
+    };
 
-    async function approve(userId: string | number) {
-        // Optimistic update: mark as approved immediately
-        setPendingId(userId);
-        setMembers(ms => ms.map(m => m.id === userId ? { ...m, is_approved: true } : m));
-        try {
-            await updateMemberApi(clubId!, userId, { is_approved: true });
-        } catch (e) {
-            // Roll back on failure
-            setMembers(ms => ms.map(m => m.id === userId ? { ...m, is_approved: false } : m));
-            alert("Failed to approve member");
-        }
-        setPendingId(null);
-    }
-
-    function mapRole(r?: string): "owner" | "moderator" | "member" {
-        if (!r) return "member";
-        const x = r.toLowerCase();
-        if (x.includes("admin")) return "owner";      // "club_admin" → "owner"
-        if (x.includes("moderator")) return "moderator";
-        return "member";
-    }
+    const approveMember = async (userId: string | number) => {
+        console.log("Approve member", userId);
+        // TODO: implement when backend API is ready
+    };
 
     useEffect(() => {
-        if (!clubId) { navigate("/discover", { replace: true }); return; }
+        if (!clubId) {
+            // If user hits /club without id, send them to Discover
+            navigate("/discover", { replace: true });
+            return;
+        }
 
         (async () => {
             try {
@@ -141,24 +102,30 @@ export default function ClubDashboard() {
                 setClubDesc(club.description ?? "");
 
                 // 2) Members from embedded array
-                const embeddedMembers = (club.members ?? []).map(m => ({
-                    id: m.user?.id ?? m.user_id ?? m.id,
-                    name: m.user?.username || m.user?.email || String(m.user?.id ?? m.id),
-                    role: mapRole(m.role),
+                // Members → map to your MemberList shape
+                const embeddedMembers: ClubMember[] = (club.members ?? []).map((m) => ({
+                    id: String(m.id),
+                    name: m.user?.first_name && m.user?.last_name 
+                        ? `${m.user.first_name} ${m.user.last_name}`
+                        : m.user?.username || m.user?.email || String(m.user_id),
+                    role: (m.role === "club_admin" ? "owner" : m.role) as ClubMember["role"],
                     joinedISO: m.joined_at ?? new Date().toISOString(),
-                    is_approved: m.is_approved ?? true,
+                    is_approved: m.is_approved
                 }));
                 setMembers(embeddedMembers);
 
                 // 3) Posts (global) → filter by club
                 const allPosts = await listPosts();
+                // Posts → filter by club_id and map to your Feed shape
                 const mappedPosts: FeedPost[] = (allPosts ?? [])
-                    .filter((p: any) => String(p.club_id) === String(clubId))
+                    .filter((p) => String(p.club_id) === String(clubId))
                     .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-                    .map((p: any) => ({
-                        id: p.id,
-                        authorId: p.user?.id ?? p.user_id ?? "unknown",
-                        authorName: p.user?.username || p.user?.email || "Member",
+                    .map((p) => ({
+                        id: String(p.id),
+                        authorId: String(p.user?.id ?? "unknown"),
+                        authorName: p.user?.first_name && p.user?.last_name 
+                            ? `${p.user.first_name} ${p.user.last_name}`
+                            : p.user?.username || p.user?.email || "Member",
                         authorRole: "member",
                         type: p.type,
                         content: p.content,
@@ -189,9 +156,10 @@ export default function ClubDashboard() {
                     setCurrentBook(null);
                 }
 
-            } catch (e: any) {
+            } catch (e: unknown) {
                 console.error("Club load error", e);
-                setError(e?.detail?.message || e?.message || "Failed to load club");
+                const errorObj = e as { detail?: { message?: string }; message?: string };
+                setError(errorObj?.detail?.message || errorObj?.message || "Failed to load club");
             } finally {
                 setLoading(false);
             }
@@ -205,7 +173,7 @@ export default function ClubDashboard() {
         const post = await createPost({ club_id: clubId, content, type: as });
         setPosts(prev => [
             {
-                id: post.id,
+                id: String(post.id),
                 authorId: currentSession.userId,
                 authorName: "You",
                 authorRole: currentSession.roleInClub,
@@ -335,11 +303,11 @@ export default function ClubDashboard() {
                     me={currentSession.roleInClub}
                     members={members.map(m => ({ ...m, id: String(m.id) }))}
                     onClose={() => setShowModeration(false)}
-                    onPromote={promote}
-                    onDemote={demote}
-                    onRemove={remove}
-                    onApprove={approve}     // ⬅️ add this prop
-                    pendingId={pendingId}
+                    onPromote={promoteMember}
+                    onDemote={demoteMember}
+                    onRemove={removeMember}
+                    onApprove={approveMember}
+                    pendingId={null}
                 />
             )}
         </div>

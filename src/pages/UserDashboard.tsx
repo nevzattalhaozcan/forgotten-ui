@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Card from "../components/common/Card";
 import EditableField from "../components/user/EditableField";
 import Badge from "../components/common/Badge";
