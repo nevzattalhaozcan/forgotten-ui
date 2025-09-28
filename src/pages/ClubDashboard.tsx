@@ -245,21 +245,41 @@ export default function ClubDashboard() {
 
 
     // Composer → create post via API, then prepend
-    const addPost: React.ComponentProps<typeof Feed>["onCreate"] = async (content, as) => {
-        if (!clubId) return;
-        const post = await createPost({ club_id: clubId, content, type: as });
-        setPosts(prev => [
-            {
-                id: String(post.id),
-                authorId: currentSession.userId,
-                authorName: "You",
-                authorRole: currentSession.roleInClub,
+    const addPost: React.ComponentProps<typeof Feed>["onCreate"] = async (content, as, title) => {
+        if (!clubId) {
+            console.error("Club ID is missing - cannot create post");
+            return;
+        }
+        
+        try {
+            console.log("Creating post with club ID:", clubId, "content length:", content.length, "type:", as, "title:", title);
+            const post = await createPost({ 
+                club_id: clubId, // Pass as string, will be converted to number in the API function
+                content, 
                 type: as,
-                content: post.content,
-                createdAtISO: post.created_at ?? new Date().toISOString(),
-            },
-            ...prev,
-        ]);
+                title 
+            });
+            
+            setPosts(prev => [
+                {
+                    id: String(post.id),
+                    authorId: currentSession.userId,
+                    authorName: "You",
+                    authorRole: currentSession.roleInClub,
+                    type: as,
+                    content: post.content,
+                    title: post.title,
+                    createdAtISO: post.created_at ?? new Date().toISOString(),
+                    likes: 0,
+                    comments: 0,
+                },
+                ...prev,
+            ]);
+        } catch (error) {
+            console.error("Error creating post:", error);
+            // You might want to show a user-friendly error message here
+            alert("Failed to create post. Please try again.");
+        }
     };
 
     // Discussions/Annotations handlers (mock, unchanged)

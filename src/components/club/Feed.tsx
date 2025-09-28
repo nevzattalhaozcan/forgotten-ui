@@ -23,27 +23,42 @@ function getPostTypeInfo(type: string) {
 
 type Props = {
     posts: Post[];
-    onCreate: (content: string, as: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation") => void;
+    onCreate: (content: string, as: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation", title?: string) => void;
 };
 
 const Feed: React.FC<Props> = ({ posts, onCreate }) => {
+    const [title, setTitle] = useState("");
     const [text, setText] = useState("");
     const [as, setAs] = useState<"discussion" | "announcement" | "event" | "poll" | "review" | "annotation">("discussion");
 
     const postTypes = [
-        { value: "discussion", label: "Discussion", placeholder: "Start a discussion..." },
-        { value: "announcement", label: "Announcement", placeholder: "Write an announcement..." },
-        { value: "event", label: "Event", placeholder: "Share event details..." },
-        { value: "poll", label: "Poll", placeholder: "Create a poll..." },
-        { value: "review", label: "Review", placeholder: "Write a book review..." },
-        { value: "annotation", label: "Annotation", placeholder: "Share an annotation..." },
+        { value: "discussion", label: "Discussion", placeholder: "Start a discussion...", titlePlaceholder: "Discussion topic..." },
+        { value: "announcement", label: "Announcement", placeholder: "Write an announcement...", titlePlaceholder: "Announcement title..." },
+        { value: "event", label: "Event", placeholder: "Share event details...", titlePlaceholder: "Event name..." },
+        { value: "poll", label: "Poll", placeholder: "Create a poll...", titlePlaceholder: "Poll question..." },
+        { value: "review", label: "Review", placeholder: "Write a book review...", titlePlaceholder: "Book title..." },
+        { value: "annotation", label: "Annotation", placeholder: "Share an annotation...", titlePlaceholder: "Chapter or page reference..." },
     ] as const;
+
+    const handlePublish = () => {
+        if (!text.trim()) return;
+        onCreate(text.trim(), as, title.trim() || undefined);
+        setText("");
+        setTitle("");
+    };
 
     return (
         <div className="space-y-4">
             <RoleGate allow={["member", "moderator", "owner"]}>
                 <Card title="Share to feed">
                     <div className="space-y-3">
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder={postTypes.find(t => t.value === as)?.titlePlaceholder || "Title..."}
+                            className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                        />
                         <textarea
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
                             placeholder={postTypes.find(t => t.value === as)?.placeholder || "Write something..."}
@@ -64,7 +79,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate }) => {
                                     </label>
                                 ))}
                             </div>
-                            <button className="btn" onClick={() => { if (!text.trim()) return; onCreate(text.trim(), as); setText(""); }}>Publish</button>
+                            <button className="btn" onClick={handlePublish}>Publish</button>
                         </div>
                     </div>
                 </Card>
