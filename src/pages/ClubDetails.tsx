@@ -39,14 +39,27 @@ const ClubDetails: React.FC = () => {
   const [events, setEvents] = useState<ClubEvent[]>([]);
   const [posts, setPosts] = useState<ClubPost[]>([]);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
-  const isLoggedIn = !!localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
   
   // Check if user is a member
   const isMember = club?.members && userId 
     ? club.members.some(member => String(member.user_id) === userId)
     : false;
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const handleAuthChange = (event: CustomEvent<{ authenticated: boolean }>) => {
+      setIsLoggedIn(event.detail.authenticated);
+    };
+
+    window.addEventListener('authStateChange', handleAuthChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('authStateChange', handleAuthChange as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (!id) {
@@ -282,7 +295,7 @@ const ClubDetails: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 {isLoggedIn ? (
                   <>
                     <button 
@@ -299,16 +312,30 @@ const ClubDetails: React.FC = () => {
                       )}
                       {isMember ? 'Leave Club' : 'Join Club'}
                     </button>
-                    <Link to={`/club/${club.id}`} className="btn-outline">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      View Dashboard
+                    
+                    {/* Enhanced View Dashboard Button - Only show for authenticated users */}
+                    <Link 
+                      to={`/club/${club.id}`} 
+                      className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:from-indigo-700 hover:via-purple-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-xl group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center">
+                        <svg className="w-5 h-5 mr-3 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <span className="tracking-wide">View Dashboard</span>
+                        <div className="ml-2 opacity-75 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition-opacity duration-300 -z-10"></div>
                     </Link>
                   </>
                 ) : (
                   <>
+                    {/* Unauthenticated users only see login/register buttons */}
                     <Link to="/login" className="btn">
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
