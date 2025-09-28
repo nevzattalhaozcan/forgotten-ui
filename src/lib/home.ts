@@ -1,4 +1,4 @@
-import { listClubs, type ClubApi } from "./clubs";
+import { listClubs, getUserClubs, type ClubApi } from "./clubs";
 import { listClubEvents, listPublicEvents, type EventApi } from "./events";
 import { listPosts, listPublicPosts, listPopularPosts, type PostApi } from "./posts";
 
@@ -59,11 +59,46 @@ export async function getHomeData() {
     const posts = await listPosts();
     const announcements = posts.filter(p => p.type === "announcement");
     
-    const clubs = await listClubs();
-    const eventArrays = await Promise.all(clubs.map(c => listClubEvents(c.id)));
-    const events: EventApi[] = eventArrays.flat();
+    // Get user's clubs (clubs they are members of)
+    const userClubs = await getUserClubs();
     
-    return { announcements, events, clubs };
+    // If user has no clubs, fetch public events instead
+    let events: EventApi[] = [];
+    if (userClubs.length === 0) {
+      // User isn't a member of any clubs, get public events
+      try {
+        events = await listPublicEvents();
+      } catch (error) {
+        console.warn('Failed to fetch public events:', error);
+        events = [];
+      }
+    } else {
+      // Fetch events only from clubs the user is a member of
+      const eventPromises = userClubs.map(async (club) => {
+        try {
+          return await listClubEvents(club.id);
+        } catch (error) {
+          // If we get a 403 or any error, skip this club's events
+          console.warn(`Failed to fetch events for club ${club.id}:`, error);
+          return [];
+        }
+      });
+      
+      const eventArrays = await Promise.all(eventPromises);
+      events = eventArrays.flat();
+    }
+    
+    // Get all clubs for context (for announcements that might reference other clubs)
+    let allClubs: ClubApi[] = [];
+    try {
+      allClubs = await listClubs();
+    } catch (error) {
+      // If we can't get all clubs, at least use the user's clubs
+      console.warn('Failed to fetch all clubs, using user clubs only:', error);
+      allClubs = userClubs;
+    }
+    
+    return { announcements, events, clubs: allClubs };
   } catch (error: unknown) {
     // If 401 (unauthorized), fall back to public content
     const errorObj = error as { status?: number; message?: string };
