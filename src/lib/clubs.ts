@@ -78,13 +78,76 @@ export async function listClubs(): Promise<ClubApi[]> {
 }
 
 export async function joinClub(clubId: string | number): Promise<{ message: string }> {
-  return await api<{ message: string }>(`/api/v1/clubs/${clubId}/join`, {
+  const result = await api<{ message: string }>(`/api/v1/clubs/${clubId}/join`, {
     method: "POST"
   });
+  
+  // Store joined club ID locally for faster filtering
+  const userId = localStorage.getItem("userId");
+  if (userId) {
+    const joinedClubs = getJoinedClubIds(userId);
+    if (!joinedClubs.includes(Number(clubId))) {
+      joinedClubs.push(Number(clubId));
+      localStorage.setItem(`joinedClubs_${userId}`, JSON.stringify(joinedClubs));
+    }
+  }
+  
+  return result;
 }
 
 export async function leaveClub(clubId: string | number): Promise<{ message: string }> {
-  return await api<{ message: string }>(`/api/v1/clubs/${clubId}/leave`, {
+  const result = await api<{ message: string }>(`/api/v1/clubs/${clubId}/leave`, {
     method: "POST"
   });
+  
+  // Remove club ID from local storage
+  const userId = localStorage.getItem("userId");
+  if (userId) {
+    const joinedClubs = getJoinedClubIds(userId);
+    const updatedClubs = joinedClubs.filter(id => id !== Number(clubId));
+    localStorage.setItem(`joinedClubs_${userId}`, JSON.stringify(updatedClubs));
+  }
+  
+  return result;
+}
+
+// Helper function to get joined club IDs from localStorage
+export function getJoinedClubIds(userId: string): number[] {
+  try {
+    const stored = localStorage.getItem(`joinedClubs_${userId}`);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Function to get user's clubs using local storage + API verification
+export async function getUserClubs(): Promise<ClubApi[]> {
+  const userId = localStorage.getItem("userId");
+  if (!userId) return [];
+  
+  // Get potentially joined clubs from localStorage
+  const joinedClubIds = getJoinedClubIds(userId);
+  
+  if (joinedClubIds.length === 0) {
+    return [];
+  }
+  
+  // Fetch detailed info for potentially joined clubs and verify membership
+  const clubPromises = joinedClubIds.map(async (clubId) => {
+    try {
+      const club = await getClub(clubId);
+      // Verify user is actually a member
+      const isMember = club.members && club.members.some(member => 
+        String(member.user_id) === String(userId)
+      );
+      return isMember ? club : null;
+    } catch (error) {
+      console.warn(`Failed to fetch club ${clubId}:`, error);
+      return null;
+    }
+  });
+  
+  const clubs = await Promise.all(clubPromises);
+  return clubs.filter((club): club is ClubApi => club !== null);
 }

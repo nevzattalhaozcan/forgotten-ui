@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
-import { getClub, joinClub, leaveClub, type ClubApi } from "../lib/clubs";
+import { getClub, joinClub, leaveClub, getJoinedClubIds, type ClubApi } from "../lib/clubs";
 import { listClubEvents } from "../lib/events";
 import { listPosts } from "../lib/posts";
 
@@ -46,6 +46,8 @@ const ClubDetails: React.FC = () => {
   // Check if user is a member
   const isMember = club?.members && userId 
     ? club.members.some(member => String(member.user_id) === userId)
+    : userId && id
+    ? getJoinedClubIds(userId).includes(Number(id))
     : false;
 
   useEffect(() => {

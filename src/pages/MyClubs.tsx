@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
-import { listClubs, type ClubApi } from "../lib/clubs";
+import { listClubs, getUserClubs, type ClubApi } from "../lib/clubs";
 
 const MyClubs: React.FC = () => {
   const navigate = useNavigate();
@@ -19,41 +19,22 @@ const MyClubs: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch all clubs
-      const clubs = await listClubs();
-      console.log("Fetched clubs:", clubs.length);
-      console.log("Current userId:", userId);
-
-      // Filter clubs where user is a member
-      const userClubs = clubs.filter(club => {
-        if (!club.members) {
-          console.log(`Club ${club.name} has no members array`);
-          return false;
-        }
-        
-        const isMember = club.members.some(member => {
-          const memberUserId = String(member.user_id);
-          const currentUserId = String(userId);
-          console.log(`Checking membership for club ${club.name}: member.user_id=${member.user_id} (${memberUserId}) vs userId=${userId} (${currentUserId})`);
-          return memberUserId === currentUserId;
-        });
-        
-        if (isMember) {
-          console.log(`User is member of: ${club.name}`);
-        }
-        
-        return isMember;
-      });
-      
+      // Fetch user's clubs using the new approach
+      const userClubs = await getUserClubs();
       console.log("User clubs found:", userClubs.length);
+      userClubs.forEach(club => console.log(`✅ User is member of: ${club.name}`));
       setMyClubs(userClubs);
 
+      // Fetch all clubs for recommendations
+      const allClubs = await listClubs();
+      console.log("Fetched all clubs:", allClubs.length);
+
       // Get recommended clubs (public clubs user hasn't joined)
-      const recommended = clubs.filter(club => 
-        !club.is_private && 
-        (!club.members || !club.members.some(member => String(member.user_id) === userId))
-      ).slice(0, 6);
-      setRecommendedClubs(recommended);
+      const recommendedClubs = allClubs.filter(club => {
+        const isUserClub = userClubs.some(userClub => userClub.id === club.id);
+        return !club.is_private && !isUserClub;
+      }).slice(0, 6);
+      setRecommendedClubs(recommendedClubs);
 
     } catch (e: unknown) {
       console.error("Error loading clubs:", e);
@@ -62,7 +43,7 @@ const MyClubs: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) {
