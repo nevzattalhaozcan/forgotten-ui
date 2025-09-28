@@ -242,7 +242,7 @@ const MyClubs: React.FC = () => {
                       Open
                     </Link>
                     <Link 
-                      to={`/clubs/${club.id}/details`}
+                      to={`/club/${club.id}/details`}
                       className="btn-outline btn-sm"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,7 +335,7 @@ const MyClubs: React.FC = () => {
                   {/* Actions */}
                   <div className="flex gap-2 pt-2">
                     <Link 
-                      to={`/clubs/${club.id}/details`}
+                      to={`/club/${club.id}/details`}
                       className="btn-outline btn-sm flex-1 text-center"
                     >
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
