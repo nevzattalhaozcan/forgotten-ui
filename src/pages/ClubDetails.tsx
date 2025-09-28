@@ -129,6 +129,11 @@ const ClubDetails: React.FC = () => {
       const updatedClub = await getClub(id);
       setClub(updatedClub);
       
+      // Notify other components about membership change
+      window.dispatchEvent(new CustomEvent('clubMembershipChanged', { 
+        detail: { clubId: id, action: isMember ? 'leave' : 'join' } 
+      }));
+      
     } catch (error) {
       console.error('Error joining/leaving club:', error);
       const errorMessage = error as { detail?: { message?: string }; message?: string };

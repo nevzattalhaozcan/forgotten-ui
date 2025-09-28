@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../components/common/Card";
 import Badge from "../components/common/Badge";
@@ -14,42 +14,77 @@ const MyClubs: React.FC = () => {
   const isLoggedIn = !!localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
 
+  const loadClubs = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch all clubs
+      const clubs = await listClubs();
+      console.log("Fetched clubs:", clubs.length);
+      console.log("Current userId:", userId);
+
+      // Filter clubs where user is a member
+      const userClubs = clubs.filter(club => {
+        if (!club.members) {
+          console.log(`Club ${club.name} has no members array`);
+          return false;
+        }
+        
+        const isMember = club.members.some(member => {
+          const memberUserId = String(member.user_id);
+          const currentUserId = String(userId);
+          console.log(`Checking membership for club ${club.name}: member.user_id=${member.user_id} (${memberUserId}) vs userId=${userId} (${currentUserId})`);
+          return memberUserId === currentUserId;
+        });
+        
+        if (isMember) {
+          console.log(`User is member of: ${club.name}`);
+        }
+        
+        return isMember;
+      });
+      
+      console.log("User clubs found:", userClubs.length);
+      setMyClubs(userClubs);
+
+      // Get recommended clubs (public clubs user hasn't joined)
+      const recommended = clubs.filter(club => 
+        !club.is_private && 
+        (!club.members || !club.members.some(member => String(member.user_id) === userId))
+      ).slice(0, 6);
+      setRecommendedClubs(recommended);
+
+    } catch (e: unknown) {
+      console.error("Error loading clubs:", e);
+      const errorObj = e as { detail?: { message?: string }; message?: string };
+      setError(errorObj?.detail?.message || errorObj?.message || "Failed to load clubs");
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!isLoggedIn) {
       navigate("/login", { replace: true });
       return;
     }
 
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    // Initial load
+    loadClubs();
 
-        // Fetch all clubs
-        const clubs = await listClubs();
+    // Listen for club membership changes
+    const handleClubMembershipChange = () => {
+      console.log("Club membership changed, refreshing clubs...");
+      loadClubs();
+    };
 
-        // Filter clubs where user is a member
-        const userClubs = clubs.filter(club => 
-          club.members && club.members.some(member => String(member.user_id) === userId)
-        );
-        setMyClubs(userClubs);
+    window.addEventListener('clubMembershipChanged', handleClubMembershipChange);
 
-        // Get recommended clubs (public clubs user hasn't joined)
-        const recommended = clubs.filter(club => 
-          !club.is_private && 
-          (!club.members || !club.members.some(member => String(member.user_id) === userId))
-        ).slice(0, 6);
-        setRecommendedClubs(recommended);
-
-      } catch (e: unknown) {
-        console.error("Error loading clubs:", e);
-        const errorObj = e as { detail?: { message?: string }; message?: string };
-        setError(errorObj?.detail?.message || errorObj?.message || "Failed to load clubs");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [isLoggedIn, userId, navigate]);
+    return () => {
+      window.removeEventListener('clubMembershipChanged', handleClubMembershipChange);
+    };
+  }, [isLoggedIn, navigate, loadClubs]);
 
   const getUserRole = (club: ClubApi): string => {
     if (!club.members) return "member";
@@ -111,6 +146,17 @@ const MyClubs: React.FC = () => {
           <p className="text-muted mt-1">Manage your reading communities and discover new ones</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={loadClubs}
+            disabled={loading}
+            className={`btn-outline ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title="Refresh clubs"
+          >
+            <svg className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
           <Link to="/discover" className="btn-outline">
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
