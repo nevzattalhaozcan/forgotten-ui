@@ -16,7 +16,12 @@ export async function api<T>(
     ...(auth ? authHeader() : {}),
   };
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  // Clean up URL construction to avoid double slashes
+  const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = baseUrl + cleanPath;
+
+  const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
     let detail: unknown;
     try { detail = await res.json(); } catch { /* ignore */ }
