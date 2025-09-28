@@ -95,6 +95,12 @@ export async function leaveClub(clubId: string | number): Promise<{ message: str
 
 // Function to get user's clubs using the dedicated my-clubs endpoint
 export async function getUserClubs(): Promise<ClubApi[]> {
+  // Check if user is authenticated first
+  const token = localStorage.getItem("token");
+  if (!token) {
+    return []; // Return empty array if not authenticated
+  }
+  
   const res: ClubsListResponse = await api("/api/v1/my-clubs");
   return Array.isArray(res) ? res : (res.clubs ?? []);
 }

@@ -3,7 +3,7 @@ import { api } from "./api";
 export type PostApi = {
   id: number | string;
   club_id: number | string;
-  type: "post" | "announcement";
+  type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
   content: string;
   title?: string;
   created_at?: string;
@@ -19,7 +19,7 @@ export async function listPosts(): Promise<PostApi[]> {
 export async function createPost(input: {
   club_id: string | number;
   content: string;
-  type: "post" | "announcement";
+  type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
   title?: string;
 }): Promise<PostApi> {
   return api<PostApi>("/api/v1/posts", {

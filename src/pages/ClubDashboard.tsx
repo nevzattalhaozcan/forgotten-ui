@@ -39,7 +39,7 @@ type FeedPost = {
   authorId: string;
   authorName: string;
   authorRole: "member" | "moderator" | "owner";
-  type: "post" | "announcement";
+  type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
   content: string;
   title?: string;
   createdAtISO: string;

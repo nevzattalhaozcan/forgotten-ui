@@ -54,6 +54,14 @@ export async function getPublicHomeData() {
 
 // Enhanced function that tries authenticated first, falls back to public
 export async function getHomeData() {
+  // Check if user is authenticated first
+  const token = localStorage.getItem("token");
+  
+  if (!token) {
+    // User is not authenticated, use public data only
+    return getPublicHomeData();
+  }
+  
   try {
     // Try authenticated request first
     const posts = await listPosts();

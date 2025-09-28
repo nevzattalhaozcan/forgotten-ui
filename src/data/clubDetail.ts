@@ -6,7 +6,7 @@ export type Post = {
     authorId: string;
     authorName: string;
     authorRole: Role;
-    type: "post" | "announcement";
+    type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
     content: string;
     createdAtISO: string;
 };
@@ -48,7 +48,7 @@ export const clubDetail: ClubDetail = {
     nextGathering: { id: "g1", dateISO: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString(), location: "Café Saray, Şişli", agenda: "Ch. 10–18 + motifs" },
     posts: [
         { id: "p3", authorId: "u100", authorName: "Ece Kaya", authorRole: "owner", type: "announcement", content: "📢 Venue change to Café Saray for next week!", createdAtISO: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() },
-        { id: "p2", authorId: "u55", authorName: "Mert Aksoy", authorRole: "moderator", type: "post", content: "Loved the snow imagery in Ch. 12—any parallels you caught?", createdAtISO: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-        { id: "p1", authorId: "u1", authorName: "Ada Demir", authorRole: "member", type: "post", content: "Sharing my notes on political symbolism…", createdAtISO: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
+        { id: "p2", authorId: "u55", authorName: "Mert Aksoy", authorRole: "moderator", type: "discussion", content: "Loved the snow imagery in Ch. 12—any parallels you caught?", createdAtISO: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
+        { id: "p1", authorId: "u1", authorName: "Ada Demir", authorRole: "member", type: "annotation", content: "Sharing my notes on political symbolism…", createdAtISO: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
     ],
 };
