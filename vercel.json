@@ -6,8 +6,8 @@
   "devCommand": "npm run dev",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://forgotten.onrender.com/api/$1"
+      "source": "/api/v1/(.*)",
+      "destination": "https://forgotten.onrender.com/api/v1/$1"
     },
     {
       "source": "/(.*)",
