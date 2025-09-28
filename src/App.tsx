@@ -1,4 +1,4 @@
-import React, { type JSX } from "react";
+import React, { type JSX, useEffect, useState } from "react";
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router-dom";
 import RootLayout from "./layouts/RootLayout";
 import Home from "./pages/Home";
@@ -11,8 +11,15 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const token = localStorage.getItem("token");
-  if (!token) {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
+  
+  useEffect(() => {
+    const onAuthStateChange = () => setIsAuthenticated(!!localStorage.getItem("token"));
+    window.addEventListener("authStateChange", onAuthStateChange);
+    return () => window.removeEventListener("authStateChange", onAuthStateChange);
+  }, []);
+  
+  if (!isAuthenticated) {
     // save intended location via router state if you like
     return <div className="container">
       <p className="mb-3">You need to sign in first.</p>

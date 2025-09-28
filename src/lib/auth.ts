@@ -52,12 +52,28 @@ export async function login(email: string, password: string) {
     { method: "POST", body: JSON.stringify({ email, password }) },
     { auth: false }
   );
+  
+  console.log("Login successful:", { userId: user.id, hasToken: !!token });
+  
   localStorage.setItem("token", token);
   localStorage.setItem("userId", String(user.id));
+  
+  // Dispatch custom event to notify components of auth state change
+  window.dispatchEvent(new CustomEvent('authStateChange', { 
+    detail: { authenticated: true, user } 
+  }));
+  
   return user;
 }
 
 export function logout() {
+  console.log("Logging out user");
+  
   localStorage.removeItem("token");
   localStorage.removeItem("userId");
+  
+  // Dispatch custom event to notify components of auth state change
+  window.dispatchEvent(new CustomEvent('authStateChange', { 
+    detail: { authenticated: false } 
+  }));
 }

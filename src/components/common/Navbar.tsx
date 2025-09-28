@@ -9,8 +9,15 @@ const NavBar: React.FC = () => {
 
     useEffect(() => {
         const onStorage = () => setAuthed(!!localStorage.getItem("token"));
+        const onAuthStateChange = () => setAuthed(!!localStorage.getItem("token"));
+        
         window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
+        window.addEventListener("authStateChange", onAuthStateChange);
+        
+        return () => {
+            window.removeEventListener("storage", onStorage);
+            window.removeEventListener("authStateChange", onAuthStateChange);
+        };
     }, []);
 
     // Close mobile menu when clicking outside
@@ -137,7 +144,6 @@ const NavBar: React.FC = () => {
                                         className="btn-ghost btn-sm text-red-600 hover:text-red-700 hover:bg-red-50"
                                         onClick={() => {
                                             logout();
-                                            setAuthed(false);
                                             nav("/login");
                                         }}
                                     >
@@ -277,7 +283,6 @@ const NavBar: React.FC = () => {
                                             <button
                                                 onClick={() => {
                                                     logout();
-                                                    setAuthed(false);
                                                     setIsMobileMenuOpen(false);
                                                     nav("/login");
                                                 }}
