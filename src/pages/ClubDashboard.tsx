@@ -8,16 +8,14 @@ import GatheringCard from "../components/club/GatheringCard";
 import Feed from "../components/club/Feed";
 import MemberList from "../components/club/MemberList";
 import RoleGate from "../components/club/RoleGate";
-import Discussions from "../components/club/Discussions";
 import type { ReviewTypeData, PollTypeData, AnnotationTypeData, PostSharingTypeData } from "../lib/posts";
-import Reviews from "../components/club/Reviews";
 import Events from "../components/club/Events";
 import Reading from "../components/club/Reading";
 
 import Tabs from "../components/common/Tabs";
 
 import { getClub, type ClubApi } from "../lib/clubs";
-import { listClubPosts, createPost, listDiscussions, listReviews, type PostApi } from "../lib/posts";
+import { listClubPosts, createPost } from "../lib/posts";
 import { listClubEvents, createEvent } from "../lib/events";
 import { listClubBooks, assignBook, addReadingLog, listReadingLogs, type BookApi, type ReadingLogApi } from "../lib/books";
 
@@ -79,8 +77,6 @@ export default function ClubDashboard() {
     const [members, setMembers] = useState<ClubMember[]>([]);
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [events, setEvents] = useState<ClubEvent[]>([]);
-    const [discussions, setDiscussions] = useState<PostApi[]>([]);
-    const [reviews, setReviews] = useState<PostApi[]>([]);
     const [books, setBooks] = useState<BookApi[]>([]);
     const [readingLogs, setReadingLogs] = useState<ReadingLogApi[]>([]);
     const [clubRating, setClubRating] = useState<{ average: number; count: number } | null>(null);
@@ -237,16 +233,7 @@ export default function ClubDashboard() {
                     });
                 }
 
-                // 7) Load discussions and reviews
-                const [discussionsData, reviewsData] = await Promise.all([
-                    listDiscussions(clubId),
-                    listReviews(clubId)
-                ]);
-                
-                setDiscussions(discussionsData);
-                setReviews(reviewsData);
-
-                // 8) Load books and reading logs
+                // 7) Load books and reading logs
                 const [booksData, readingLogsData] = await Promise.all([
                     listClubBooks(clubId),
                     listReadingLogs(clubId)
@@ -417,7 +404,30 @@ export default function ClubDashboard() {
                     {tab === "feed" && (
                         <div className="space-y-4" data-testid="feed-tab-content">
                             <Feed 
-                                posts={posts} 
+                                posts={posts.map(post => ({
+                                    ...post,
+                                    isLikedByUser: false, // TODO: implement user like tracking
+                                    isBookmarked: false, // TODO: implement bookmarking
+                                    // Add enhanced data for polls and reviews
+                                    ...(post.type === "poll" && {
+                                        pollData: {
+                                            question: post.title || "Poll question",
+                                            options: [
+                                                { id: "1", text: "Option 1", votes: 5 },
+                                                { id: "2", text: "Option 2", votes: 3 }
+                                            ],
+                                            totalVotes: 8,
+                                            allowMultiple: false,
+                                            userVote: []
+                                        }
+                                    }),
+                                    ...(post.type === "review" && {
+                                        reviewData: {
+                                            rating: 4, // TODO: extract from post data
+                                            bookTitle: "Sample Book" // TODO: extract from post data
+                                        }
+                                    })
+                                }))}
                                 onCreate={addPost}
                                 onLike={async (postId) => {
                                     try {
@@ -433,9 +443,21 @@ export default function ClubDashboard() {
                                     }
                                 }}
                                 onComment={(postId: string | number) => {
-                                    // TODO: Implement comment modal or inline comment creation
-                                    console.log("Comment on post:", postId);
+                                    const comment = prompt("Add a comment:");
+                                    if (comment) {
+                                        console.log("Add comment to post", postId, comment);
+                                        // TODO: implement comment functionality
+                                    }
                                 }}
+                                onBookmark={(postId) => {
+                                    console.log("Bookmark post", postId);
+                                    // TODO: implement bookmark functionality
+                                }}
+                                onPollVote={(postId, optionIds) => {
+                                    console.log("Vote on poll", postId, optionIds);
+                                    // TODO: implement poll voting
+                                }}
+                                userRole={userRole}
                             />
                         </div>
                     )}
@@ -553,23 +575,16 @@ export default function ClubDashboard() {
                     )}
 
                     {tab === "discussions" && (
-                        <Discussions 
-                            discussions={discussions.map(d => ({
-                                id: String(d.id),
-                                authorId: String(d.user_id || "unknown"),
-                                authorName: d.user?.first_name && d.user?.last_name 
-                                    ? `${d.user.first_name} ${d.user.last_name}`
-                                    : d.user?.username || "Anonymous",
-                                authorRole: "member" as const,
-                                title: d.title || "Discussion",
-                                content: d.content,
-                                createdAtISO: d.created_at || new Date().toISOString(),
-                                likes: 0,
-                                comments: 0
+                        <Feed 
+                            posts={posts.map(post => ({
+                                ...post,
+                                isLikedByUser: false,
+                                isBookmarked: false,
                             }))}
-                            onCreate={async (title, content) => {
+                            filterType="discussion"
+                            onCreate={async (title, content, type, typeData) => {
                                 try {
-                                    console.log("Creating discussion:", { title, content });
+                                    console.log("Creating discussion:", { title, content, type, typeData });
                                     const newPost = await createPost({
                                         club_id: clubId!,
                                         title,
@@ -577,33 +592,53 @@ export default function ClubDashboard() {
                                         type: "discussion"
                                     });
                                     
-                                    // Add to discussions state
-                                    setDiscussions(prev => [newPost, ...prev]);
+                                    setPosts(prev => [newPost, ...prev]);
                                 } catch (error) {
                                     console.error("Failed to create discussion:", error);
                                 }
                             }}
+                            onLike={async (postId) => {
+                                try {
+                                    await likePost(postId);
+                                    setPosts(prev => prev.map(p => 
+                                        p.id === postId 
+                                            ? { ...p, likes: (p.likes || 0) + 1 }
+                                            : p
+                                    ));
+                                } catch (error) {
+                                    console.error("Failed to like post:", error);
+                                }
+                            }}
+                            onComment={(postId: string | number) => {
+                                const comment = prompt("Add a comment:");
+                                if (comment) {
+                                    console.log("Add comment to discussion", postId, comment);
+                                }
+                            }}
+                            onBookmark={(postId) => {
+                                console.log("Bookmark discussion", postId);
+                            }}
+                            userRole={userRole}
                         />
                     )}
 
                     {tab === "reviews" && (
-                        <Reviews 
-                            reviews={reviews.map(r => ({
-                                id: String(r.id),
-                                authorId: String(r.user_id || "unknown"),
-                                authorName: r.user?.first_name && r.user?.last_name 
-                                    ? `${r.user.first_name} ${r.user.last_name}`
-                                    : r.user?.username || "Anonymous",
-                                authorRole: "member" as const,
-                                title: r.title || "Review",
-                                content: r.content,
-                                createdAtISO: r.created_at || new Date().toISOString(),
-                                likes: 0,
-                                comments: 0
+                        <Feed 
+                            posts={posts.map(post => ({
+                                ...post,
+                                isLikedByUser: false,
+                                isBookmarked: false,
+                                ...(post.type === "review" && {
+                                    reviewData: {
+                                        rating: 4, // TODO: extract from post data
+                                        bookTitle: post.title || "Book Review"
+                                    }
+                                })
                             }))}
-                            onCreate={async (title, content, rating) => {
+                            filterType="review"
+                            onCreate={async (title, content, type, typeData) => {
                                 try {
-                                    console.log("Creating review:", { title, content, rating });
+                                    console.log("Creating review:", { title, content, type, typeData });
                                     const newPost = await createPost({
                                         club_id: clubId!,
                                         title,
@@ -611,12 +646,33 @@ export default function ClubDashboard() {
                                         type: "review"
                                     });
                                     
-                                    // Add to reviews state
-                                    setReviews(prev => [newPost, ...prev]);
+                                    setPosts(prev => [newPost, ...prev]);
                                 } catch (error) {
                                     console.error("Failed to create review:", error);
                                 }
                             }}
+                            onLike={async (postId) => {
+                                try {
+                                    await likePost(postId);
+                                    setPosts(prev => prev.map(p => 
+                                        p.id === postId 
+                                            ? { ...p, likes: (p.likes || 0) + 1 }
+                                            : p
+                                    ));
+                                } catch (error) {
+                                    console.error("Failed to like post:", error);
+                                }
+                            }}
+                            onComment={(postId: string | number) => {
+                                const comment = prompt("Add a comment:");
+                                if (comment) {
+                                    console.log("Add comment to review", postId, comment);
+                                }
+                            }}
+                            onBookmark={(postId) => {
+                                console.log("Bookmark review", postId);
+                            }}
+                            userRole={userRole}
                         />
                     )}
                 </div>
