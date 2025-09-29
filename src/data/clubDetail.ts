@@ -6,7 +6,7 @@ export type Post = {
     authorId: string;
     authorName: string;
     authorRole: Role;
-    type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
+    type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation" | "post";
     content: string;
     title?: string;
     likes?: number;

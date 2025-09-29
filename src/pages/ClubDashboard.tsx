@@ -9,6 +9,7 @@ import Feed from "../components/club/Feed";
 import MemberList from "../components/club/MemberList";
 import RoleGate from "../components/club/RoleGate";
 import Discussions from "../components/club/Discussions";
+import type { ReviewTypeData, PollTypeData, AnnotationTypeData, PostSharingTypeData } from "../lib/posts";
 import Reviews from "../components/club/Reviews";
 import Events from "../components/club/Events";
 import Reading from "../components/club/Reading";
@@ -16,8 +17,11 @@ import Reading from "../components/club/Reading";
 import Tabs from "../components/common/Tabs";
 
 import { getClub, type ClubApi } from "../lib/clubs";
-import { listPosts, createPost } from "../lib/posts";
-import { listClubEvents } from "../lib/events";
+import { listClubPosts, createPost, listDiscussions, listReviews, type PostApi } from "../lib/posts";
+import { listClubEvents, createEvent } from "../lib/events";
+import { listClubBooks, assignBook, addReadingLog, listReadingLogs, type BookApi, type ReadingLogApi } from "../lib/books";
+
+import { likePost } from "../lib/likes";
 
 import { currentSession } from "../data/session";
 import ModerationPanel from "../components/club/ModerationPanel";
@@ -38,7 +42,7 @@ type FeedPost = {
   authorId: string;
   authorName: string;
   authorRole: "member" | "moderator" | "owner";
-  type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
+  type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation" | "post";
   content: string;
   title?: string;
   createdAtISO: string;
@@ -75,6 +79,10 @@ export default function ClubDashboard() {
     const [members, setMembers] = useState<ClubMember[]>([]);
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [events, setEvents] = useState<ClubEvent[]>([]);
+    const [discussions, setDiscussions] = useState<PostApi[]>([]);
+    const [reviews, setReviews] = useState<PostApi[]>([]);
+    const [books, setBooks] = useState<BookApi[]>([]);
+    const [readingLogs, setReadingLogs] = useState<ReadingLogApi[]>([]);
     const [clubRating, setClubRating] = useState<{ average: number; count: number } | null>(null);
 
     // Book and reading management
@@ -154,9 +162,8 @@ export default function ClubDashboard() {
                 setMembers(embeddedMembers);
 
                 // 3) Load club posts with enhanced metadata
-                const allPosts = await listPosts();
-                const clubPosts = allPosts
-                    .filter((p) => String(p.club_id) === String(clubId))
+                const clubPosts = await listClubPosts(clubId);
+                const mappedPosts = clubPosts
                     .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
                     .map((p): FeedPost => ({
                         id: String(p.id),
@@ -172,7 +179,7 @@ export default function ClubDashboard() {
                         likes: 0, // TODO: Implement when like API is available
                         comments: 0, // TODO: Implement when comment count API is available
                     }));
-                setPosts(clubPosts);
+                setPosts(mappedPosts);
 
                 // 4) Load club events with RSVP status
                 try {
@@ -230,6 +237,24 @@ export default function ClubDashboard() {
                     });
                 }
 
+                // 7) Load discussions and reviews
+                const [discussionsData, reviewsData] = await Promise.all([
+                    listDiscussions(clubId),
+                    listReviews(clubId)
+                ]);
+                
+                setDiscussions(discussionsData);
+                setReviews(reviewsData);
+
+                // 8) Load books and reading logs
+                const [booksData, readingLogsData] = await Promise.all([
+                    listClubBooks(clubId),
+                    listReadingLogs(clubId)
+                ]);
+                
+                setBooks(booksData);
+                setReadingLogs(readingLogsData);
+
             } catch (e: unknown) {
                 console.error("Club dashboard load error:", e);
                 const errorObj = e as { detail?: { message?: string }; message?: string };
@@ -242,19 +267,29 @@ export default function ClubDashboard() {
 
 
     // Composer → create post via API, then prepend
-    const addPost: React.ComponentProps<typeof Feed>["onCreate"] = async (content, as, title) => {
-        if (!clubId) {
-            console.error("Club ID is missing - cannot create post");
-            return;
-        }
+    const addPost: React.ComponentProps<typeof Feed>["onCreate"] = async (title, content, type, typeData) => {
+        if (!currentSession?.userId || !clubId) return;
         
         try {
-            console.log("Creating post with club ID:", clubId, "content length:", content.length, "type:", as, "title:", title);
-            const post = await createPost({ 
-                club_id: clubId, // Pass as string, will be converted to number in the API function
-                content, 
-                type: as,
-                title 
+            // Convert poll creation data to proper format if needed
+            let processedTypeData = typeData;
+            if (type === "poll" && typeData && 'options' in typeData) {
+                processedTypeData = {
+                    ...typeData,
+                    options: typeData.options.map((opt, index) => ({
+                        id: String(index),
+                        text: opt.text,
+                        votes: 0
+                    }))
+                };
+            }
+            
+            const post = await createPost({
+                club_id: clubId,
+                title,
+                content,
+                type,
+                type_data: processedTypeData as ReviewTypeData | PollTypeData | AnnotationTypeData | PostSharingTypeData | undefined
             });
             
             setPosts(prev => [
@@ -263,7 +298,7 @@ export default function ClubDashboard() {
                     authorId: currentSession.userId,
                     authorName: "You",
                     authorRole: currentSession.roleInClub,
-                    type: as,
+                    type: type as FeedPost["type"],
                     content: post.content,
                     title: post.title,
                     createdAtISO: post.created_at ?? new Date().toISOString(),
@@ -274,8 +309,6 @@ export default function ClubDashboard() {
             ]);
         } catch (error) {
             console.error("Error creating post:", error);
-            // You might want to show a user-friendly error message here
-            alert("Failed to create post. Please try again.");
         }
     };
 
@@ -419,7 +452,27 @@ export default function ClubDashboard() {
                     {/* Tab Content */}
                     {tab === "feed" && (
                         <div className="space-y-4">
-                            <Feed posts={posts} onCreate={addPost} />
+                            <Feed 
+                                posts={posts} 
+                                onCreate={addPost}
+                                onLike={async (postId) => {
+                                    try {
+                                        await likePost(postId);
+                                        // Update like count in local state
+                                        setPosts(prev => prev.map(p => 
+                                            p.id === postId 
+                                                ? { ...p, likes: (p.likes || 0) + 1 }
+                                                : p
+                                        ));
+                                    } catch (error) {
+                                        console.error("Failed to like post:", error);
+                                    }
+                                }}
+                                onComment={(postId: string | number) => {
+                                    // TODO: Implement comment modal or inline comment creation
+                                    console.log("Comment on post:", postId);
+                                }}
+                            />
                         </div>
                     )}
 
@@ -437,45 +490,168 @@ export default function ClubDashboard() {
                                 status: new Date(event.start_time) > new Date() ? "upcoming" : "completed" as "upcoming" | "ongoing" | "completed" | "cancelled"
                             }))}
                             userRole={userRole}
-                            onCreateEvent={(title, description, date, location, maxAttendees) => {
-                                // Handle event creation
-                                console.log("Creating event:", { title, description, date, location, maxAttendees });
+                            onCreateEvent={async (title, description, date, location, maxAttendees) => {
+                                try {
+                                    console.log("Creating event:", { title, description, date, location, maxAttendees });
+                                    const newEvent = await createEvent({
+                                        club_id: clubId!,
+                                        title,
+                                        description,
+                                        start_time: date,
+                                        location,
+                                        max_attendees: maxAttendees,
+                                        event_type: "in_person",
+                                        is_public: false
+                                    });
+                                    
+                                    // Update local state
+                                    const mappedEvent: ClubEvent = {
+                                        id: String(newEvent.id),
+                                        title: newEvent.title,
+                                        description: newEvent.description,
+                                        event_type: newEvent.event_type,
+                                        start_time: newEvent.start_time,
+                                        end_time: newEvent.end_time,
+                                        location: newEvent.location,
+                                        online_link: newEvent.online_link,
+                                        max_attendees: newEvent.max_attendees,
+                                        is_public: newEvent.is_public,
+                                        attendees: 0,
+                                        user_rsvp: null
+                                    };
+                                    
+                                    setEvents(prev => [mappedEvent, ...prev]);
+                                } catch (error) {
+                                    console.error("Failed to create event:", error);
+                                }
                             }}
                         />
                     )}
 
                     {tab === "reading" && (
                         <Reading 
-                            books={[]}
-                            readingLogs={[]}
+                            books={books.map(book => ({
+                                id: String(book.id),
+                                title: book.title,
+                                author: book.author,
+                                isbn: book.isbn,
+                                pages: book.pages,
+                                assignedDate: book.assigned_date,
+                                targetDate: book.target_date,
+                                status: book.status
+                            }))}
+                            readingLogs={readingLogs.map(log => ({
+                                id: String(log.id),
+                                userId: String(log.user_id),
+                                userName: log.user?.first_name && log.user?.last_name
+                                    ? `${log.user.first_name} ${log.user.last_name}`
+                                    : log.user?.username || "Anonymous",
+                                bookId: String(log.book_id),
+                                pagesRead: log.pages_read,
+                                totalPages: 0, // Not available in API, would need book lookup
+                                note: log.note,
+                                createdAtISO: log.created_at
+                            }))}
                             userRole={userRole}
-                            onAssignBook={(title, author, pages, targetDate) => {
-                                // Handle book assignment
-                                console.log("Assigning book:", { title, author, pages, targetDate });
+                            onAssignBook={async (title, author, pages, targetDate) => {
+                                try {
+                                    console.log("Assigning book:", { title, author, pages, targetDate });
+                                    const newBook = await assignBook({
+                                        club_id: clubId!,
+                                        title,
+                                        author,
+                                        pages,
+                                        target_date: targetDate,
+                                        status: "current"
+                                    });
+                                    
+                                    setBooks(prev => [newBook, ...prev]);
+                                } catch (error) {
+                                    console.error("Failed to assign book:", error);
+                                }
                             }}
-                            onAddReadingLog={(bookId, pagesRead, note) => {
-                                // Handle reading log
-                                console.log("Adding reading log:", { bookId, pagesRead, note });
+                            onAddReadingLog={async (bookId, pagesRead, note) => {
+                                try {
+                                    console.log("Adding reading log:", { bookId, pagesRead, note });
+                                    const newLog = await addReadingLog({
+                                        club_id: clubId!,
+                                        book_id: bookId,
+                                        pages_read: pagesRead,
+                                        note
+                                    });
+                                    
+                                    setReadingLogs(prev => [newLog, ...prev]);
+                                } catch (error) {
+                                    console.error("Failed to add reading log:", error);
+                                }
                             }}
                         />
                     )}
 
                     {tab === "discussions" && (
                         <Discussions 
-                            discussions={[]}
-                            onCreate={(title, content) => {
-                                // Handle discussion creation
-                                console.log("Creating discussion:", { title, content });
+                            discussions={discussions.map(d => ({
+                                id: String(d.id),
+                                authorId: String(d.user_id || "unknown"),
+                                authorName: d.user?.first_name && d.user?.last_name 
+                                    ? `${d.user.first_name} ${d.user.last_name}`
+                                    : d.user?.username || "Anonymous",
+                                authorRole: "member" as const,
+                                title: d.title || "Discussion",
+                                content: d.content,
+                                createdAtISO: d.created_at || new Date().toISOString(),
+                                likes: 0,
+                                comments: 0
+                            }))}
+                            onCreate={async (title, content) => {
+                                try {
+                                    console.log("Creating discussion:", { title, content });
+                                    const newPost = await createPost({
+                                        club_id: clubId!,
+                                        title,
+                                        content,
+                                        type: "discussion"
+                                    });
+                                    
+                                    // Add to discussions state
+                                    setDiscussions(prev => [newPost, ...prev]);
+                                } catch (error) {
+                                    console.error("Failed to create discussion:", error);
+                                }
                             }}
                         />
                     )}
 
                     {tab === "reviews" && (
                         <Reviews 
-                            reviews={[]}
-                            onCreate={(title, content, rating) => {
-                                // Handle review creation
-                                console.log("Creating review:", { title, content, rating });
+                            reviews={reviews.map(r => ({
+                                id: String(r.id),
+                                authorId: String(r.user_id || "unknown"),
+                                authorName: r.user?.first_name && r.user?.last_name 
+                                    ? `${r.user.first_name} ${r.user.last_name}`
+                                    : r.user?.username || "Anonymous",
+                                authorRole: "member" as const,
+                                title: r.title || "Review",
+                                content: r.content,
+                                createdAtISO: r.created_at || new Date().toISOString(),
+                                likes: 0,
+                                comments: 0
+                            }))}
+                            onCreate={async (title, content, rating) => {
+                                try {
+                                    console.log("Creating review:", { title, content, rating });
+                                    const newPost = await createPost({
+                                        club_id: clubId!,
+                                        title,
+                                        content,
+                                        type: "review"
+                                    });
+                                    
+                                    // Add to reviews state
+                                    setReviews(prev => [newPost, ...prev]);
+                                } catch (error) {
+                                    console.error("Failed to create review:", error);
+                                }
                             }}
                         />
                     )}
