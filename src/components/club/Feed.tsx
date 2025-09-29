@@ -40,25 +40,36 @@ interface Props {
 const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
     const [title, setTitle] = useState("");
     const [text, setText] = useState("");
-    const [as, setAs] = useState<"discussion" | "announcement" | "post" | "poll" | "review" | "annotation">("discussion");
+    const [as, setAs] = useState<"announcement" | "post" | "poll">("announcement");
     
-    // Type-specific state
-    const [rating, setRating] = useState(5);
+    // Poll-specific state
     const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
     const [allowMultiple, setAllowMultiple] = useState(false);
     const [expiresAt, setExpiresAt] = useState("");
-    const [bookId, setBookId] = useState("");
-    const [page, setPage] = useState("");
-    const [chapter, setChapter] = useState("");
-    const [quote, setQuote] = useState("");
 
-    const postTypes = [
-        { value: "discussion", label: "Discussion", placeholder: "Start a discussion...", titlePlaceholder: "Discussion topic..." },
-        { value: "announcement", label: "Announcement", placeholder: "Write an announcement...", titlePlaceholder: "Announcement title..." },
-        { value: "post", label: "Share Post", placeholder: "Share your thoughts...", titlePlaceholder: "Why are you sharing this?" },
-        { value: "poll", label: "Poll", placeholder: "Ask the community...", titlePlaceholder: "Poll question..." },
-        { value: "review", label: "Review", placeholder: "Share your review...", titlePlaceholder: "Book or topic..." },
-        { value: "annotation", label: "Annotation", placeholder: "Share a quote or note...", titlePlaceholder: "Chapter or page reference..." },
+    // Only show feed-appropriate post types
+    const feedPostTypes = [
+        { 
+            value: "announcement", 
+            label: "📢 Announcement", 
+            placeholder: "Share important news with the club...", 
+            titlePlaceholder: "What's the announcement about?",
+            description: "Important updates for all members"
+        },
+        { 
+            value: "post", 
+            label: "💭 Share Post", 
+            placeholder: "Share your thoughts with the community...", 
+            titlePlaceholder: "What's on your mind?",
+            description: "General thoughts and updates"
+        },
+        { 
+            value: "poll", 
+            label: "📊 Create Poll", 
+            placeholder: "Ask the community a question...", 
+            titlePlaceholder: "What would you like to ask?",
+            description: "Get community input on decisions"
+        }
     ] as const;
 
     const handlePublish = () => {
@@ -66,39 +77,16 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
         
         let typeData: ReviewTypeData | PollCreationTypeData | AnnotationTypeData | PostSharingTypeData | undefined = undefined;
         
-        // Build type-specific data
-        switch (as) {
-            case "review": {
-                if (bookId) {
-                    typeData = {
-                        book_id: parseInt(bookId),
-                        rating: rating
-                    };
-                }
-                break;
-            }
-            case "poll": {
-                const validOptions = pollOptions.filter(opt => opt.trim());
-                if (validOptions.length >= 2) {
-                    typeData = {
-                        question: title.trim(),
-                        options: validOptions.map(text => ({ text: text.trim() })),
-                        allow_multiple: allowMultiple,
-                        ...(expiresAt && { expires_at: expiresAt })
-                    };
-                }
-                break;
-            }
-            case "annotation": {
-                if (bookId) {
-                    typeData = {
-                        book_id: parseInt(bookId),
-                        ...(page && { page: parseInt(page) }),
-                        ...(chapter && { chapter: parseInt(chapter) }),
-                        ...(quote && { quote: quote.trim() })
-                    };
-                }
-                break;
+        // Build type-specific data for polls only
+        if (as === "poll") {
+            const validOptions = pollOptions.filter(opt => opt.trim());
+            if (validOptions.length >= 2) {
+                typeData = {
+                    question: title.trim(),
+                    options: validOptions.map(text => ({ text: text.trim() })),
+                    allow_multiple: allowMultiple,
+                    ...(expiresAt && { expires_at: expiresAt })
+                };
             }
         }
         
@@ -107,14 +95,9 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
         // Reset form
         setText("");
         setTitle("");
-        setRating(5);
         setPollOptions(["", ""]);
         setAllowMultiple(false);
         setExpiresAt("");
-        setBookId("");
-        setPage("");
-        setChapter("");
-        setQuote("");
     };
 
     return (
@@ -126,12 +109,12 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            placeholder={postTypes.find(t => t.value === as)?.titlePlaceholder || "Title..."}
+                            placeholder={feedPostTypes.find(t => t.value === as)?.titlePlaceholder || "Title..."}
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
                         />
                         <textarea
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                            placeholder={postTypes.find(t => t.value === as)?.placeholder || "Write something..."}
+                            placeholder={feedPostTypes.find(t => t.value === as)?.placeholder || "Write something..."}
                             value={text}
                             onChange={(e) => setText(e.target.value)}
                         />
@@ -189,82 +172,47 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                             </div>
                         )}
                         
-                        {as === "review" && (
-                            <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                                <div className="flex gap-3">
-                                    <input
-                                        type="text"
-                                        value={bookId}
-                                        onChange={(e) => setBookId(e.target.value)}
-                                        placeholder="Book ID"
-                                        className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
-                                    />
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-700">Rating:</span>
-                                        <select
-                                            value={rating}
-                                            onChange={(e) => setRating(parseInt(e.target.value))}
-                                            className="rounded-lg border border-gray-300 p-2 text-sm"
-                                        >
-                                            {[1, 2, 3, 4, 5].map(num => (
-                                                <option key={num} value={num}>{num} ⭐</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {as === "annotation" && (
-                            <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                                <div className="flex gap-3">
-                                    <input
-                                        type="text"
-                                        value={bookId}
-                                        onChange={(e) => setBookId(e.target.value)}
-                                        placeholder="Book ID"
-                                        className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={page}
-                                        onChange={(e) => setPage(e.target.value)}
-                                        placeholder="Page"
-                                        className="w-20 rounded-lg border border-gray-300 p-2 text-sm"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={chapter}
-                                        onChange={(e) => setChapter(e.target.value)}
-                                        placeholder="Chapter"
-                                        className="w-24 rounded-lg border border-gray-300 p-2 text-sm"
-                                    />
-                                </div>
-                                <textarea
-                                    value={quote}
-                                    onChange={(e) => setQuote(e.target.value)}
-                                    placeholder="Quote or note..."
-                                    className="w-full rounded-lg border border-gray-300 p-2 text-sm"
-                                    rows={2}
-                                />
-                            </div>
-                        )}
-                        
                         <div className="flex items-center justify-between">
-                            <div className="flex flex-wrap gap-2 text-sm">
-                                {postTypes.map(type => (
-                                    <label key={type.value} className="flex items-center gap-1 cursor-pointer">
+                            <div className="flex flex-wrap gap-3">
+                                {feedPostTypes.map(type => (
+                                    <label 
+                                        key={type.value} 
+                                        className={`relative flex items-center gap-3 cursor-pointer p-3 rounded-lg border-2 transition-all duration-200 ${
+                                            as === type.value 
+                                                ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                    >
                                         <input 
                                             type="radio" 
+                                            name="postType"
+                                            value={type.value}
                                             checked={as === type.value} 
                                             onChange={() => setAs(type.value)} 
-                                            className="text-indigo-600"
+                                            className="sr-only"
                                         />
-                                        <span className="text-xs">{type.label}</span>
+                                        <div className="flex flex-col">
+                                            <span className={`text-sm font-medium ${
+                                                as === type.value ? 'text-blue-700' : 'text-gray-900'
+                                            }`}>
+                                                {type.label}
+                                            </span>
+                                            <span className={`text-xs ${
+                                                as === type.value ? 'text-blue-600' : 'text-gray-500'
+                                            }`}>
+                                                {type.description}
+                                            </span>
+                                        </div>
                                     </label>
                                 ))}
                             </div>
-                            <button className="btn" onClick={handlePublish}>Publish</button>
+                            <button 
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                onClick={handlePublish}
+                                disabled={!title.trim() || !text.trim()}
+                            >
+                                Publish
+                            </button>
                         </div>
                     </div>
                 </Card>
