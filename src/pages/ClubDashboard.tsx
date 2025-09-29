@@ -365,15 +365,15 @@ export default function ClubDashboard() {
                                 <p className="text-slate-600 mb-3 leading-relaxed" data-testid="club-description">{club.description}</p>
                             )}
                             
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                                <span className="flex items-center">
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600" data-testid="club-stats">
+                                <span className="flex items-center" data-testid="club-members-count">
                                     <svg className="w-4 h-4 mr-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
                                     {club?.members_count || members.length} members
                                 </span>
                                 {club?.location && (
-                                    <span className="flex items-center">
+                                    <span className="flex items-center" data-testid="club-location">
                                         <svg className="w-4 h-4 mr-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                         </svg>
@@ -381,7 +381,7 @@ export default function ClubDashboard() {
                                     </span>
                                 )}
                                 {clubRating && (
-                                    <span className="flex items-center">
+                                    <span className="flex items-center" data-testid="club-rating">
                                         <svg className="w-4 h-4 mr-1 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                                         </svg>
@@ -395,7 +395,7 @@ export default function ClubDashboard() {
             </header>
 
             {/* Enhanced Navigation Tabs */}
-            <div className="sticky top-4 z-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl p-1">
+            <div className="sticky top-4 z-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl p-1" data-testid="club-navigation">
                 <Tabs
                     tabs={[
                         { id: "feed", label: "Feed" },
@@ -406,15 +406,16 @@ export default function ClubDashboard() {
                     ]}
                     value={tab}
                     onChange={(id) => setTab(id as typeof tab)}
+                    data-testid="club-tabs"
                 />
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 lg:grid-cols-3" data-testid="club-content">
                 <div className="lg:col-span-2 space-y-6">
                     {/* Tab Content */}
                     {tab === "feed" && (
-                        <div className="space-y-4">
+                        <div className="space-y-4" data-testid="feed-tab-content">
                             <Feed 
                                 posts={posts} 
                                 onCreate={addPost}

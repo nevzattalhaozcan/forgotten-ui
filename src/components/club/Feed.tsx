@@ -101,9 +101,9 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="feed-component">
             <RoleGate allow={["member", "moderator", "owner"]}>
-                <Card title="Share to feed">
+                <Card title="Share to feed" data-testid="share-to-feed-card">
                     <div className="space-y-3">
                         <input
                             type="text"
@@ -111,17 +111,19 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder={feedPostTypes.find(t => t.value === as)?.titlePlaceholder || "Title..."}
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                            data-testid="post-title-input"
                         />
                         <textarea
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
                             placeholder={feedPostTypes.find(t => t.value === as)?.placeholder || "Write something..."}
                             value={text}
                             onChange={(e) => setText(e.target.value)}
+                            data-testid="post-content-input"
                         />
                         
                         {/* Type-specific form fields */}
                         {as === "poll" && (
-                            <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="space-y-3 p-3 bg-gray-50 rounded-lg" data-testid="poll-form">
                                 <div className="text-sm font-medium text-gray-700">Poll Options</div>
                                 {pollOptions.map((option, index) => (
                                     <div key={index} className="flex gap-2">
@@ -135,11 +137,13 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                                             }}
                                             placeholder={`Option ${index + 1}`}
                                             className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
+                                            data-testid={`poll-option-${index}`}
                                         />
                                         {pollOptions.length > 2 && (
                                             <button
                                                 onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}
                                                 className="text-red-500 hover:text-red-700 px-2"
+                                                data-testid={`remove-poll-option-${index}`}
                                             >
                                                 ×
                                             </button>
@@ -150,6 +154,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                                     <button
                                         onClick={() => setPollOptions([...pollOptions, ""])}
                                         className="text-sm text-blue-600 hover:text-blue-800"
+                                        data-testid="add-poll-option"
                                     >
                                         + Add Option
                                     </button>
@@ -158,6 +163,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                                             type="checkbox"
                                             checked={allowMultiple}
                                             onChange={(e) => setAllowMultiple(e.target.checked)}
+                                            data-testid="poll-allow-multiple"
                                         />
                                         Allow multiple choices
                                     </label>
@@ -168,12 +174,13 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                                     onChange={(e) => setExpiresAt(e.target.value)}
                                     className="w-full rounded-lg border border-gray-300 p-2 text-sm"
                                     placeholder="Poll expiration (optional)"
+                                    data-testid="poll-expires-at"
                                 />
                             </div>
                         )}
                         
                         <div className="flex items-center justify-between">
-                            <div className="flex flex-wrap gap-3">
+                            <div className="flex flex-wrap gap-3" data-testid="post-type-selector">
                                 {feedPostTypes.map(type => (
                                     <label 
                                         key={type.value} 
@@ -182,6 +189,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                                                 ? 'border-blue-500 bg-blue-50 shadow-sm' 
                                                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                         }`}
+                                        data-testid={`post-type-${type.value}`}
                                     >
                                         <input 
                                             type="radio" 
@@ -210,6 +218,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment }) => {
                                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
                                 onClick={handlePublish}
                                 disabled={!title.trim() || !text.trim()}
+                                data-testid="publish-post-button"
                             >
                                 Publish
                             </button>

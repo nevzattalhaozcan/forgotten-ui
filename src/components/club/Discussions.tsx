@@ -47,9 +47,9 @@ const Discussions: React.FC<Props> = ({ discussions, onCreate }) => {
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="discussions-component">
             <RoleGate allow={["member", "moderator", "owner"]}>
-                <Card title="Start a Discussion">
+                <Card title="Start a Discussion" data-testid="create-discussion-card">
                     <div className="space-y-3">
                         <input
                             type="text"
@@ -57,6 +57,7 @@ const Discussions: React.FC<Props> = ({ discussions, onCreate }) => {
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Discussion topic..."
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            data-testid="discussion-title-input"
                         />
                         <textarea
                             className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
@@ -64,12 +65,14 @@ const Discussions: React.FC<Props> = ({ discussions, onCreate }) => {
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             rows={4}
+                            data-testid="discussion-content-input"
                         />
                         <div className="flex justify-end">
                             <button 
                                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={handlePublish}
                                 disabled={!title.trim() || !content.trim()}
+                                data-testid="start-discussion-button"
                             >
                                 Start Discussion
                             </button>
@@ -89,18 +92,18 @@ const Discussions: React.FC<Props> = ({ discussions, onCreate }) => {
                 });
 
                 return (
-                    <Card key={discussion.id} className="hover:shadow-lg transition-shadow">
+                    <Card key={discussion.id} className="hover:shadow-lg transition-shadow" data-testid={`discussion-card-${discussion.id}`}>
                         <div className="space-y-4">
                             {/* Discussion Header */}
                             <div className="space-y-2">
-                                <h3 className="text-lg font-semibold text-gray-900">{discussion.title}</h3>
+                                <h3 className="text-lg font-semibold text-gray-900" data-testid={`discussion-title-${discussion.id}`}>{discussion.title}</h3>
                                 <div className="flex items-center justify-between">
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800" data-testid={`discussion-badge-${discussion.id}`}>
                                         💬 Discussion
                                     </span>
                                     <div className="text-right">
-                                        <div className="text-xs text-gray-500">{discussion.authorName}</div>
-                                        <div className="text-xs text-gray-400" title={exactTime}>
+                                        <div className="text-xs text-gray-500" data-testid={`discussion-author-${discussion.id}`}>{discussion.authorName}</div>
+                                        <div className="text-xs text-gray-400" title={exactTime} data-testid={`discussion-time-${discussion.id}`}>
                                             {timeAgo}
                                         </div>
                                     </div>
@@ -108,17 +111,17 @@ const Discussions: React.FC<Props> = ({ discussions, onCreate }) => {
                             </div>
 
                             {/* Discussion Content */}
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{discussion.content}</p>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed" data-testid={`discussion-content-${discussion.id}`}>{discussion.content}</p>
 
                             {/* Discussion Actions */}
-                            <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
-                                <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition-colors">
+                            <div className="flex items-center gap-4 pt-2 border-t border-gray-100" data-testid={`discussion-actions-${discussion.id}`}>
+                                <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition-colors" data-testid={`discussion-like-${discussion.id}`}>
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                                     </svg>
                                     {discussion.likes || 0}
                                 </button>
-                                <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 transition-colors">
+                                <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 transition-colors" data-testid={`discussion-comment-${discussion.id}`}>
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                     </svg>
