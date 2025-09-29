@@ -8,19 +8,18 @@ import GatheringCard from "../components/club/GatheringCard";
 import Feed from "../components/club/Feed";
 import MemberList from "../components/club/MemberList";
 import RoleGate from "../components/club/RoleGate";
+import Discussions from "../components/club/Discussions";
+import Reviews from "../components/club/Reviews";
+import Events from "../components/club/Events";
+import Reading from "../components/club/Reading";
 
 import Tabs from "../components/common/Tabs";
-import DiscussionComposer from "../components/discuss/DiscussionComposer";
-import DiscussionThreadCard from "../components/discuss/DiscussionThread";
-import AnnotationsPanel from "../components/discuss/AnnotationsPanel";
 
 import { getClub, type ClubApi } from "../lib/clubs";
 import { listPosts, createPost } from "../lib/posts";
 import { listClubEvents } from "../lib/events";
 
 import { currentSession } from "../data/session";
-import { sampleThreads as threadsSeed, sampleAnnotations as annSeed } from "../data/threads";
-import type { DiscussionThread, Annotation } from "../data/threads";
 import ModerationPanel from "../components/club/ModerationPanel";
 
 // Enhanced types based on API capabilities
@@ -87,9 +86,7 @@ export default function ClubDashboard() {
     const [showModeration, setShowModeration] = useState(false);
 
     // Enhanced tabs with new features
-    const [tab, setTab] = useState<"feed" | "events" | "reading" | "discuss" | "notes" | "members">("feed");
-    const [threads, setThreads] = useState<DiscussionThread[]>(threadsSeed);
-    const [annotations, setAnnotations] = useState<Annotation[]>(annSeed);
+    const [tab, setTab] = useState<"feed" | "events" | "reading" | "discussions" | "reviews">("feed");
 
     // Get user's role in this club
     const getUserRole = () => {
@@ -220,8 +217,8 @@ export default function ClubDashboard() {
                         title: clubData.current_book.title,
                         author: clubData.current_book.author ?? "Unknown",
                         progressPct: Math.round((clubData.current_book.progress ?? 0) * 100),
-                        annotations: annotations.length, // Use local annotations for now
-                        discussions: threads.length, // Use local discussions for now
+                        annotations: 0, // Placeholder for annotations count
+                        discussions: 0, // Placeholder for discussions count
                     });
                 }
 
@@ -241,7 +238,7 @@ export default function ClubDashboard() {
                 setLoading(false);
             }
         })();
-    }, [clubId, navigate, annotations.length, threads.length]);
+    }, [clubId, navigate]);
 
 
     // Composer → create post via API, then prepend
@@ -280,28 +277,6 @@ export default function ClubDashboard() {
             // You might want to show a user-friendly error message here
             alert("Failed to create post. Please try again.");
         }
-    };
-
-    // Discussions/Annotations handlers (mock, unchanged)
-    const createThread: React.ComponentProps<typeof DiscussionComposer>["onCreate"] = (title, chapter, quote) => {
-        const t: DiscussionThread = {
-            id: Math.random().toString(36).slice(2),
-            title, chapter, quote,
-            createdAtISO: new Date().toISOString(),
-            authorId: currentSession.userId,
-            authorName: "You",
-            comments: [],
-        };
-        setThreads([t, ...threads]);
-    };
-    const addComment = (threadId: string, text: string) => {
-        setThreads(threads.map(t => t.id === threadId
-            ? { ...t, comments: [...t.comments, { id: Math.random().toString(36).slice(2), authorId: currentSession.userId, authorName: "You", createdAtISO: new Date().toISOString(), text }] }
-            : t));
-    };
-    const addAnnotation: React.ComponentProps<typeof AnnotationsPanel>["onAdd"] = (text, chapter, page) => {
-        const a: Annotation = { id: Math.random().toString(36).slice(2), text, chapter, page, createdAtISO: new Date().toISOString(), authorId: currentSession.userId, authorName: "You" };
-        setAnnotations([a, ...annotations]);
     };
 
     if (loading) {
@@ -430,9 +405,8 @@ export default function ClubDashboard() {
                         { id: "feed", label: "Feed" },
                         { id: "events", label: "Events" },
                         { id: "reading", label: "Reading" },
-                        { id: "discuss", label: "Discussions" },
-                        { id: "notes", label: "Annotations" },
-                        { id: "members", label: "Members" },
+                        { id: "discussions", label: "Discussions" },
+                        { id: "reviews", label: "Reviews" },
                     ]}
                     value={tab}
                     onChange={(id) => setTab(id as typeof tab)}
@@ -450,149 +424,60 @@ export default function ClubDashboard() {
                     )}
 
                     {tab === "events" && (
-                        <div className="space-y-4">
-                            <Card title="Club Events" variant="elevated">
-                                {events.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {events.map((event) => (
-                                            <div key={event.id} className="border border-slate-200 rounded-lg p-4">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <h4 className="font-semibold text-slate-800">{event.title}</h4>
-                                                    <Badge variant={event.is_public ? "success" : "secondary"}>
-                                                        {event.is_public ? "🌍 Public" : "🔒 Private"}
-                                                    </Badge>
-                                                </div>
-                                                {event.description && (
-                                                    <p className="text-slate-600 text-sm mb-2">{event.description}</p>
-                                                )}
-                                                <div className="flex items-center gap-4 text-xs text-slate-500">
-                                                    <span>📅 {new Date(event.start_time).toLocaleDateString()}</span>
-                                                    {event.location && <span>📍 {event.location}</span>}
-                                                    <span>👥 {event.attendees || 0} attending</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-slate-500">No events scheduled</p>
-                                        {(userRole === "owner" || userRole === "moderator") && (
-                                            <button 
-                                                className="btn mt-4"
-                                                onClick={() => alert("Event creation coming soon!")}
-                                            >
-                                                Create First Event
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </Card>
-                        </div>
+                        <Events 
+                            events={events.map(event => ({
+                                id: event.id,
+                                title: event.title,
+                                description: event.description || "",
+                                dateISO: event.start_time,
+                                location: event.location || "TBD",
+                                createdByName: "Club Admin", // You might want to add this field to the API
+                                attendees: event.attendees,
+                                maxAttendees: event.max_attendees,
+                                status: new Date(event.start_time) > new Date() ? "upcoming" : "completed" as "upcoming" | "ongoing" | "completed" | "cancelled"
+                            }))}
+                            userRole={userRole}
+                            onCreateEvent={(title, description, date, location, maxAttendees) => {
+                                // Handle event creation
+                                console.log("Creating event:", { title, description, date, location, maxAttendees });
+                            }}
+                        />
                     )}
 
                     {tab === "reading" && (
-                        <div className="space-y-4">
-                            <Card title="Reading Progress" variant="elevated">
-                                {currentBook ? (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-16 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center">
-                                                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
-                                                </svg>
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-slate-800">{currentBook.title}</h4>
-                                                <p className="text-slate-600">by {currentBook.author}</p>
-                                                <div className="mt-2">
-                                                    <div className="flex justify-between text-xs text-slate-600 mb-1">
-                                                        <span>Club Progress</span>
-                                                        <span>{currentBook.progressPct}%</span>
-                                                    </div>
-                                                    <div className="w-full bg-slate-200 rounded-full h-2">
-                                                        <div 
-                                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                                            style={{ width: `${currentBook.progressPct}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-4 text-sm text-slate-600">
-                                            <span>💬 {currentBook.discussions} discussions</span>
-                                            <span>📝 {currentBook.annotations} annotations</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-slate-500 mb-4">No book currently assigned</p>
-                                        {(userRole === "owner" || userRole === "moderator") && (
-                                            <button 
-                                                className="btn"
-                                                onClick={() => alert("Book assignment coming soon!")}
-                                            >
-                                                Assign Book
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </Card>
-                        </div>
+                        <Reading 
+                            books={[]}
+                            readingLogs={[]}
+                            userRole={userRole}
+                            onAssignBook={(title, author, pages, targetDate) => {
+                                // Handle book assignment
+                                console.log("Assigning book:", { title, author, pages, targetDate });
+                            }}
+                            onAddReadingLog={(bookId, pagesRead, note) => {
+                                // Handle reading log
+                                console.log("Adding reading log:", { bookId, pagesRead, note });
+                            }}
+                        />
                     )}
 
-                    {tab === "discuss" && (
-                        <div className="space-y-4">
-                            <DiscussionComposer onCreate={createThread} />
-                            <div className="space-y-4">
-                                {threads.map(t => (
-                                    <DiscussionThreadCard key={t.id} thread={t} onAddComment={addComment} />
-                                ))}
-                                {threads.length === 0 && (
-                                    <Card variant="elevated">
-                                        <div className="text-center py-8">
-                                            <p className="text-slate-500">No discussions yet. Start one!</p>
-                                        </div>
-                                    </Card>
-                                )}
-                            </div>
-                        </div>
+                    {tab === "discussions" && (
+                        <Discussions 
+                            discussions={[]}
+                            onCreate={(title, content) => {
+                                // Handle discussion creation
+                                console.log("Creating discussion:", { title, content });
+                            }}
+                        />
                     )}
 
-                    {tab === "notes" && (
-                        <AnnotationsPanel annotations={annotations} onAdd={addAnnotation} />
-                    )}
-
-                    {tab === "members" && (
-                        <Card title="Club Members" variant="elevated">
-                            <div className="space-y-3">
-                                {members.map((member) => (
-                                    <div key={member.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                                                {member.name[0]?.toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-slate-800">{member.name}</p>
-                                                <p className="text-xs text-slate-500">
-                                                    Joined {new Date(member.joinedISO).toLocaleDateString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant={
-                                                member.role === "owner" ? "gradient" : 
-                                                member.role === "moderator" ? "success" : "secondary"
-                                            }>
-                                                {member.role}
-                                            </Badge>
-                                            {!member.is_approved && (
-                                                <Badge variant="outline">Pending</Badge>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
+                    {tab === "reviews" && (
+                        <Reviews 
+                            reviews={[]}
+                            onCreate={(title, content, rating) => {
+                                // Handle review creation
+                                console.log("Creating review:", { title, content, rating });
+                            }}
+                        />
                     )}
                 </div>
 
@@ -617,7 +502,7 @@ export default function ClubDashboard() {
                                 <div className="text-xs text-slate-500">Events</div>
                             </div>
                             <div>
-                                <div className="text-2xl font-bold text-orange-600">{threads.length}</div>
+                                <div className="text-2xl font-bold text-orange-600">0</div>
                                 <div className="text-xs text-slate-500">Discussions</div>
                             </div>
                         </div>

@@ -8,6 +8,9 @@ export type Post = {
     authorRole: Role;
     type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation";
     content: string;
+    title?: string;
+    likes?: number;
+    comments?: number;
     createdAtISO: string;
 };
 
