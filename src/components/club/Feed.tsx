@@ -27,6 +27,18 @@ interface EnhancedPost extends Post {
         rating: number;
         bookTitle?: string;
     };
+    annotationData?: {
+        bookTitle?: string;
+        bookAuthor?: string;
+        page?: number;
+        chapter?: number;
+        quote?: string;
+    };
+    shareData?: {
+        originalPostId?: number;
+        originalPostTitle?: string;
+        originalPostContent?: string;
+    };
     commentsData?: CommentApi[]; // Actual comment data
     attachments?: {
         type: "image" | "file";
@@ -588,6 +600,40 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onCommentsLoad, onComm
                                 {post.reviewData?.bookTitle && (
                                     <div className="text-sm text-yellow-700 bg-yellow-50 px-2 py-1 rounded">
                                         📚 {post.reviewData.bookTitle}
+                                    </div>
+                                )}
+                                
+                                {post.annotationData && (
+                                    <div className="text-sm text-indigo-700 bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-200">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-medium">📖 {post.annotationData.bookTitle}</span>
+                                            {post.annotationData.bookAuthor && (
+                                                <span className="text-indigo-600">by {post.annotationData.bookAuthor}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-3 text-xs text-indigo-600">
+                                            {post.annotationData.page && <span>Page {post.annotationData.page}</span>}
+                                            {post.annotationData.chapter && <span>Chapter {post.annotationData.chapter}</span>}
+                                        </div>
+                                        {post.annotationData.quote && (
+                                            <blockquote className="mt-2 pl-3 border-l-2 border-indigo-300 italic text-indigo-800">
+                                                "{post.annotationData.quote}"
+                                            </blockquote>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                {post.shareData && (
+                                    <div className="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-gray-500">🔗 Sharing:</span>
+                                            <span className="font-medium">{post.shareData.originalPostTitle}</span>
+                                        </div>
+                                        {post.shareData.originalPostContent && (
+                                            <div className="text-gray-600 text-xs mt-1 line-clamp-2">
+                                                {post.shareData.originalPostContent}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

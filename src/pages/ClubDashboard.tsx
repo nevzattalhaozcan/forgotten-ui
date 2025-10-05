@@ -50,6 +50,7 @@ interface FeedPost {
   createdAtISO: string;
   userLiked?: boolean;
   commentsData?: CommentApi[];
+  typeData?: ReviewTypeData | PollTypeData | AnnotationTypeData | PostSharingTypeData; // Type-specific data
 }
 
 type ClubEvent = {
@@ -178,8 +179,9 @@ export default function ClubDashboard() {
                             createdAtISO: p.created_at ?? new Date().toISOString(),
                             likes: p.likes_count || 0,
                             comments: p.comments_count || 0,
-                            userLiked: p.has_user_liked || false, // From API!
+                            userLiked: p.has_user_liked || false, // From API (optional field)
                             commentsData: [], // Will be loaded when clicking on comments
+                            typeData: p.type_data, // Include type data for enhanced UI
                         };
                     });
                 setPosts(mappedPosts);
@@ -527,23 +529,37 @@ export default function ClubDashboard() {
                                     ...post,
                                     isLikedByUser: post.userLiked || false,
                                     isBookmarked: false, // TODO: implement bookmarking
-                                    // Add enhanced data for polls and reviews
-                                    ...(post.type === "poll" && {
+                                    // Add enhanced data based on actual type_data from API
+                                    ...(post.type === "poll" && post.typeData && {
                                         pollData: {
-                                            question: post.title || "Poll question",
-                                            options: [
-                                                { id: "1", text: "Option 1", votes: 5 },
-                                                { id: "2", text: "Option 2", votes: 3 }
-                                            ],
-                                            totalVotes: 8,
-                                            allowMultiple: false,
-                                            userVote: []
+                                            question: (post.typeData as PollTypeData).question || post.title || "Poll question",
+                                            options: (post.typeData as PollTypeData).options || [],
+                                            totalVotes: (post.typeData as PollTypeData).options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0,
+                                            allowMultiple: (post.typeData as PollTypeData).allow_multiple || false,
+                                            userVote: [], // TODO: Get user's vote from API
+                                            expiresAt: (post.typeData as PollTypeData).expires_at
                                         }
                                     }),
-                                    ...(post.type === "review" && {
+                                    ...(post.type === "review" && post.typeData && {
                                         reviewData: {
-                                            rating: 4, // TODO: extract from post data
-                                            bookTitle: "Sample Book" // TODO: extract from post data
+                                            rating: (post.typeData as ReviewTypeData).rating || 0,
+                                            bookTitle: (post.typeData as ReviewTypeData).book_title || "Unknown Book"
+                                        }
+                                    }),
+                                    ...(post.type === "annotation" && post.typeData && {
+                                        annotationData: {
+                                            bookTitle: (post.typeData as AnnotationTypeData).book_title || "Unknown Book",
+                                            bookAuthor: (post.typeData as AnnotationTypeData).book_author || "Unknown Author",
+                                            page: (post.typeData as AnnotationTypeData).page,
+                                            chapter: (post.typeData as AnnotationTypeData).chapter,
+                                            quote: (post.typeData as AnnotationTypeData).quote
+                                        }
+                                    }),
+                                    ...(post.type === "post" && post.typeData && {
+                                        shareData: {
+                                            originalPostId: (post.typeData as PostSharingTypeData).post_id,
+                                            originalPostTitle: (post.typeData as PostSharingTypeData).post_title,
+                                            originalPostContent: (post.typeData as PostSharingTypeData).post_content
                                         }
                                     })
                                 }))}
@@ -788,10 +804,10 @@ export default function ClubDashboard() {
                                 ...post,
                                 isLikedByUser: post.userLiked || false,
                                 isBookmarked: false,
-                                ...(post.type === "review" && {
+                                ...(post.type === "review" && post.typeData && {
                                     reviewData: {
-                                        rating: 4, // TODO: extract from post data
-                                        bookTitle: post.title || "Book Review"
+                                        rating: (post.typeData as ReviewTypeData).rating || 0,
+                                        bookTitle: (post.typeData as ReviewTypeData).book_title || post.title || "Book Review"
                                     }
                                 })
                             }))}

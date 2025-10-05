@@ -48,12 +48,12 @@ export type PostSummaryApi = {
   title: string;
   content: string;
   type: "discussion" | "announcement" | "post" | "poll" | "review" | "annotation";
-  type_data?: string; // Base64 encoded type-specific data
+  type_data?: ReviewTypeData | PollTypeData | AnnotationTypeData | PostSharingTypeData; // Now parsed JSON object
   is_pinned: boolean;
   likes_count: number;
   comments_count: number;
   views_count: number;
-  has_user_liked?: boolean; // Whether current user has liked this post
+  has_user_liked?: boolean; // Whether current user has liked this post (optional)
   user_id: number | string;
   club_id: number | string;
   user: {
