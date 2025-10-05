@@ -228,9 +228,7 @@ export async function createPost(data: {
     content: string;
     type: string;
     type_data?: ReviewTypeData | PollTypeData | AnnotationTypeData | PostSharingTypeData;
-}) {
-    console.log("createPost - Received data:", data);
-    
+}) {    
     // Ensure club_id is a number as the backend expects
     const club_id = typeof data.club_id === 'string' ? parseInt(data.club_id, 10) : data.club_id;
     
@@ -245,9 +243,7 @@ export async function createPost(data: {
         club_id: club_id,
         ...(data.type_data && { type_data: data.type_data })
     };
-    
-    console.log("createPost - Sending request body:", requestBody);
-    
+        
     const response = await fetch("/api/v1/posts", {
         method: "POST",
         headers: {
@@ -257,8 +253,6 @@ export async function createPost(data: {
         body: JSON.stringify(requestBody)
     });
 
-    console.log("createPost - Response status:", response.status);
-    
     if (!response.ok) {
         const errorText = await response.text();
         console.error("createPost - Error response:", errorText);
@@ -266,7 +260,6 @@ export async function createPost(data: {
     }
 
     const result = await response.json();
-    console.log("createPost - Success response:", result);
     return result;
 }
 

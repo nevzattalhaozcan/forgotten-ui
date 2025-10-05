@@ -163,12 +163,10 @@ export default function ClubDashboard() {
 
                 // 3) Load club posts with enhanced metadata
                 const clubPosts = await listClubPostSummaries(clubId);
-                console.log("ClubDashboard - Raw club posts:", clubPosts);
                 
                 const mappedPosts = clubPosts
                     .sort((a: PostSummaryApi, b: PostSummaryApi) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
                     .map((p: PostSummaryApi): FeedPost => {
-                        console.log(`ClubDashboard - Post ${p.id}: likes_count=${p.likes_count}, comments_count=${p.comments_count}`);
                         
                         return {
                             id: String(p.id),
@@ -619,7 +617,6 @@ export default function ClubDashboard() {
                             userRole={userRole}
                             onCreateEvent={async (title, description, date, location, maxAttendees) => {
                                 try {
-                                    console.log("Creating event:", { title, description, date, location, maxAttendees });
                                     const newEvent = await createEvent({
                                         club_id: clubId!,
                                         title,
@@ -682,7 +679,6 @@ export default function ClubDashboard() {
                             userRole={userRole}
                             onAssignBook={async (title, author, pages, targetDate) => {
                                 try {
-                                    console.log("Assigning book:", { title, author, pages, targetDate });
                                     const newBook = await assignBook({
                                         club_id: clubId!,
                                         title,
@@ -699,7 +695,6 @@ export default function ClubDashboard() {
                             }}
                             onAddReadingLog={async (bookId, pagesRead, note) => {
                                 try {
-                                    console.log("Adding reading log:", { bookId, pagesRead, note });
                                     const newLog = await addReadingLog({
                                         club_id: clubId!,
                                         book_id: bookId,
@@ -723,9 +718,8 @@ export default function ClubDashboard() {
                                 isBookmarked: false,
                             }))}
                             filterType="discussion"
-                            onCreate={async (title, content, type, typeData) => {
+                            onCreate={async (title, content) => {
                                 try {
-                                    console.log("Creating discussion:", { title, content, type, typeData });
                                     const newPost = await createPost({
                                         club_id: clubId!,
                                         title,
@@ -795,9 +789,8 @@ export default function ClubDashboard() {
                                 })
                             }))}
                             filterType="review"
-                            onCreate={async (title, content, type, typeData) => {
+                            onCreate={async (title, content) => {
                                 try {
-                                    console.log("Creating review:", { title, content, type, typeData });
                                     const newPost = await createPost({
                                         club_id: clubId!,
                                         title,

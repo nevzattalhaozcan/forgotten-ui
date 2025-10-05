@@ -21,13 +21,10 @@ const MyClubs: React.FC = () => {
 
       // Fetch user's clubs using the new approach
       const userClubs = await getUserClubs();
-      console.log("User clubs found:", userClubs.length);
-      userClubs.forEach(club => console.log(`✅ User is member of: ${club.name}`));
       setMyClubs(userClubs);
 
       // Fetch all clubs for recommendations
       const allClubs = await listClubs();
-      console.log("Fetched all clubs:", allClubs.length);
 
       // Get recommended clubs (public clubs user hasn't joined)
       const recommendedClubs = allClubs.filter(club => {
@@ -56,7 +53,6 @@ const MyClubs: React.FC = () => {
 
     // Listen for club membership changes
     const handleClubMembershipChange = () => {
-      console.log("Club membership changed, refreshing clubs...");
       loadClubs();
     };
 

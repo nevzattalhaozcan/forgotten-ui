@@ -53,8 +53,6 @@ export async function login(email: string, password: string) {
     { auth: false }
   );
   
-  console.log("Login successful:", { userId: user.id, hasToken: !!token });
-  
   localStorage.setItem("token", token);
   localStorage.setItem("userId", String(user.id));
   
@@ -67,8 +65,6 @@ export async function login(email: string, password: string) {
 }
 
 export function logout() {
-  console.log("Logging out user");
-  
   localStorage.removeItem("token");
   localStorage.removeItem("userId");
   
