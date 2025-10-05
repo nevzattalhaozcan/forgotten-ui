@@ -244,7 +244,7 @@ export default function ClubDashboard() {
 
                 // 7) Load books and reading logs
                 const [booksData, readingLogsData] = await Promise.all([
-                    listClubBooks(clubId),
+                    listClubBooks(),
                     listReadingLogs(clubId)
                 ]);
                 

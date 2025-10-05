@@ -33,7 +33,64 @@ export type ReadingLogApi = {
     };
 };
 
-export async function listClubBooks(_clubId: string | number): Promise<BookApi[]> {
+// New Book response shape returned by the /api/v1/books search endpoint
+export type BookResponse = {
+    id: number | null;
+    external_id?: string;
+    source?: string;
+    title: string;
+    author?: string;
+    cover_url?: string;
+    genre?: string;
+    pages?: number;
+    published_year?: number;
+    isbn?: string;
+    description?: string;
+    rating?: number;
+    local_rating?: number;
+    read_count: number;
+    rating_count: number;
+    is_club_favorite: boolean;
+    is_trending: boolean;
+    created_at?: string;
+    updated_at?: string;
+};
+
+/**
+ * Search books using the backend books endpoint.
+ * Query params:
+ *  - q (string) required
+ *  - limit (number) optional (default 20)
+ *  - source ("local" | "external" | "all") optional (default "all")
+ */
+export async function searchBooks(q: string, opts?: { limit?: number; source?: "local" | "external" | "all" }): Promise<BookResponse[]> {
+    if (!q || q.trim().length === 0) {
+        throw new Error("Missing required query parameter 'q' for searchBooks");
+    }
+
+    const limit = typeof opts?.limit === 'number' ? Math.min(Math.max(1, Math.floor(opts!.limit)), 100) : 20;
+    const source = opts?.source ?? "all";
+
+    const params = new URLSearchParams({ q: q.trim(), limit: String(limit), source });
+    const res = await api<Record<string, unknown>>(`/api/v1/books?${params.toString()}`);
+
+    if (!res) return [];
+
+    // Prefer shape { books: BookResponse[] }
+    const maybeBooks = (res as Record<string, unknown>)['books'];
+    if (Array.isArray(maybeBooks)) {
+        return maybeBooks as BookResponse[];
+    }
+
+    // If the api helper returned an array directly (edge case)
+    if (Array.isArray(res)) {
+        return res as unknown as BookResponse[];
+    }
+
+    return [];
+}
+
+export async function listClubBooks(): Promise<BookApi[]> {
     // Use general books endpoint since there's no club-specific book endpoint
     const res = await api<BookApi[] | { books: BookApi[] }>(`/api/v1/books`);
     return Array.isArray(res) ? res : (res.books ?? []);
@@ -137,7 +194,7 @@ export async function updateBookStatus(bookId: string | number, status: "current
     return await response.json();
 }
 
-export async function listReadingLogs(clubId: string | number, _bookId?: string | number): Promise<ReadingLogApi[]> {
+export async function listReadingLogs(clubId: string | number): Promise<ReadingLogApi[]> {
     // Use club reading assignments endpoint since there's no specific reading logs endpoint
     const res = await api<ClubReading[]>(`/api/v1/clubs/${clubId}/reading`);
     
