@@ -207,6 +207,54 @@ export async function getPostComments(postId: string | number): Promise<CommentA
     return res.comments || [];
 }
 
+// Post Like API Response Type
+export interface PostLikeApi {
+    id: number | string;
+    user: {
+        id: number | string;
+        username: string;
+        email: string;
+        first_name: string;
+        last_name: string;
+        is_active: boolean;
+        role: string;
+        avatar_url: string | null;
+        location: string | null;
+        favorite_genres: string[] | null;
+        bio: string | null;
+        reading_goal: number;
+        books_read: number;
+        badges: unknown;
+        is_online: boolean;
+        last_seen: string | null;
+        created_at: string;
+    };
+    created_at: string;
+}
+
+// Function to get likes for a specific post
+export async function getPostLikes(postId: string | number): Promise<PostLikeApi[]> {
+    const res = await api<{ likes: PostLikeApi[] }>(`/api/v1/posts/${postId}/likes`, {
+        headers: getAuthHeaders()
+    });
+    return res.likes || [];
+}
+
+// Helper function to check if current user has liked a post using the likes API
+export async function checkPostLikedByUser(postId: string | number): Promise<boolean> {
+    try {
+        const likes = await getPostLikes(postId);
+        const currentUserId = getCurrentUserId();
+        
+        if (!currentUserId) return false;
+        
+        return likes.some(like => String(like.user.id) === String(currentUserId));
+    } catch (error) {
+        console.error("Failed to check post like status:", error);
+        return false;
+    }
+}
+
 export async function listDiscussions(clubId: string | number): Promise<PostApi[]> {
     return listPosts({ club_id: clubId, type: "discussion" });
 }
