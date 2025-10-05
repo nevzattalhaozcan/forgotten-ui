@@ -15,8 +15,7 @@ import Reading from "../components/club/Reading";
 import Tabs from "../components/common/Tabs";
 
 import { getClub, type ClubApi } from "../lib/clubs";
-import { listClubPostSummaries, getPostComments, createPost, type PostSummaryApi } from "../lib/posts";
-import { likeCache } from "../lib/likeCache";
+import { listClubPostSummaries, getPostComments, createPost } from "../lib/posts";
 import { listClubEvents, createEvent } from "../lib/events";
 import { listClubBooks, assignBook, addReadingLog, listReadingLogs, type BookApi, type ReadingLogApi } from "../lib/books";
 
@@ -162,22 +161,10 @@ export default function ClubDashboard() {
                 }));
                 setMembers(embeddedMembers);
 
-                // 3) Load club posts with enhanced metadata
+                // 3) Load club posts with enhanced metadata (now includes like status!)
                 const clubPosts = await listClubPostSummaries(clubId);
                 
-                // 4) Load like status for all posts efficiently using cache
-                const postsWithLikes = await Promise.all(
-                    clubPosts.map(async (p: PostSummaryApi) => {
-                        const likeStatus = await likeCache.getLikeStatus(p.id);
-                        return {
-                            ...p,
-                            userLiked: likeStatus.userLiked,
-                            likes_count: likeStatus.likesCount
-                        };
-                    })
-                );
-                
-                const mappedPosts = postsWithLikes
+                const mappedPosts = clubPosts
                     .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
                     .map((p): FeedPost => {
                         return {
@@ -186,18 +173,18 @@ export default function ClubDashboard() {
                             authorName: p.user?.username || "Member",
                             authorRole: "member" as Role, // TODO: Map from club member role
                             type: p.type,
-                            content: "", // Content not available in summary, will be loaded when clicking
+                            content: p.content, // Now available in summary!
                             title: p.title,
                             createdAtISO: p.created_at ?? new Date().toISOString(),
-                            likes: p.likes_count || 0, // Use the updated count from cache
+                            likes: p.likes_count || 0,
                             comments: p.comments_count || 0,
-                            userLiked: p.userLiked,
+                            userLiked: p.has_user_liked || false, // From API!
                             commentsData: [], // Will be loaded when clicking on comments
                         };
                     });
                 setPosts(mappedPosts);
 
-                // 5) Load club events with RSVP status
+                // 4) Load club events with RSVP status
                 try {
                     const eventsData = await listClubEvents(clubId);
                     const mappedEvents: ClubEvent[] = eventsData.map((e): ClubEvent => ({
@@ -234,7 +221,7 @@ export default function ClubDashboard() {
                     setEvents([]);
                 }
 
-                // 6) Enhanced current book with reading progress
+                // 5) Enhanced current book with reading progress
                 if (clubData.current_book?.title) {
                     setCurrentBook({
                         title: clubData.current_book.title,
@@ -245,7 +232,7 @@ export default function ClubDashboard() {
                     });
                 }
 
-                // 7) Club rating information
+                // 6) Club rating information
                 if (clubData.rating && clubData.ratings_count) {
                     setClubRating({
                         average: clubData.rating,
@@ -253,7 +240,7 @@ export default function ClubDashboard() {
                     });
                 }
 
-                // 8) Load books and reading logs
+                // 7) Load books and reading logs
                 const [booksData, readingLogsData] = await Promise.all([
                     listClubBooks(clubId),
                     listReadingLogs(clubId)
@@ -271,14 +258,6 @@ export default function ClubDashboard() {
             }
         })();
     }, [clubId, navigate]);
-
-    // Cleanup cache when component unmounts
-    useEffect(() => {
-        return () => {
-            // Don't clear entire cache, just clean up pending requests
-            // likeCache.clear(); // Uncomment if you want to clear cache on unmount
-        };
-    }, []);
 
 
     // Composer → create post via API, then prepend
@@ -580,9 +559,6 @@ export default function ClubDashboard() {
                                             await unlikePost(postId);
                                             const newLikesCount = Math.max((currentPost?.likes || 0) - 1, 0);
                                             
-                                            // Update cache
-                                            likeCache.updateLikeStatus(postId, false, newLikesCount);
-                                            
                                             setPosts(prev => prev.map(p => 
                                                 p.id === postId 
                                                     ? { 
@@ -597,9 +573,6 @@ export default function ClubDashboard() {
                                             await likePost(postId);
                                             const newLikesCount = (currentPost?.likes || 0) + 1;
                                             
-                                            // Update cache
-                                            likeCache.updateLikeStatus(postId, true, newLikesCount);
-                                            
                                             setPosts(prev => prev.map(p => 
                                                 p.id === postId 
                                                     ? { 
@@ -612,8 +585,6 @@ export default function ClubDashboard() {
                                         }
                                     } catch (error) {
                                         console.error("Failed to toggle like on post:", error);
-                                        // Invalidate cache on error to refetch on next request
-                                        likeCache.invalidate(postId);
                                     }
                                 }}
                                 onCommentsLoad={handleCommentsLoad}
@@ -773,9 +744,6 @@ export default function ClubDashboard() {
                                         await unlikePost(postId);
                                         const newLikesCount = Math.max((currentPost?.likes || 0) - 1, 0);
                                         
-                                        // Update cache
-                                        likeCache.updateLikeStatus(postId, false, newLikesCount);
-                                        
                                         setPosts(prev => prev.map(p => 
                                             p.id === postId 
                                                 ? { 
@@ -789,9 +757,6 @@ export default function ClubDashboard() {
                                         await likePost(postId);
                                         const newLikesCount = (currentPost?.likes || 0) + 1;
                                         
-                                        // Update cache
-                                        likeCache.updateLikeStatus(postId, true, newLikesCount);
-                                        
                                         setPosts(prev => prev.map(p => 
                                             p.id === postId 
                                                 ? { 
@@ -804,8 +769,6 @@ export default function ClubDashboard() {
                                     }
                                 } catch (error) {
                                     console.error("Failed to toggle like on discussion:", error);
-                                    // Invalidate cache on error
-                                    likeCache.invalidate(postId);
                                 }
                             }}
                             onCommentsLoad={handleCommentsLoad}
@@ -856,9 +819,6 @@ export default function ClubDashboard() {
                                         await unlikePost(postId);
                                         const newLikesCount = Math.max((currentPost?.likes || 0) - 1, 0);
                                         
-                                        // Update cache
-                                        likeCache.updateLikeStatus(postId, false, newLikesCount);
-                                        
                                         setPosts(prev => prev.map(p => 
                                             p.id === postId 
                                                 ? { 
@@ -872,9 +832,6 @@ export default function ClubDashboard() {
                                         await likePost(postId);
                                         const newLikesCount = (currentPost?.likes || 0) + 1;
                                         
-                                        // Update cache
-                                        likeCache.updateLikeStatus(postId, true, newLikesCount);
-                                        
                                         setPosts(prev => prev.map(p => 
                                             p.id === postId 
                                                 ? { 
@@ -887,8 +844,6 @@ export default function ClubDashboard() {
                                     }
                                 } catch (error) {
                                     console.error("Failed to toggle like on review:", error);
-                                    // Invalidate cache on error
-                                    likeCache.invalidate(postId);
                                 }
                             }}
                             onCommentsLoad={handleCommentsLoad}
