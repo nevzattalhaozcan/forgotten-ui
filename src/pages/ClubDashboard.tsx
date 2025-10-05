@@ -15,7 +15,7 @@ import Reading from "../components/club/Reading";
 import Tabs from "../components/common/Tabs";
 
 import { getClub, type ClubApi } from "../lib/clubs";
-import { listClubPostSummaries, getPostComments, createPost } from "../lib/posts";
+import { listClubPostSummaries, getPostComments, createPost, voteOnPoll, unvoteOnPoll } from "../lib/posts";
 import { listClubEvents, createEvent } from "../lib/events";
 import { listClubBooks, assignBook, addReadingLog, listReadingLogs, type BookApi, type ReadingLogApi } from "../lib/books";
 
@@ -420,6 +420,25 @@ export default function ClubDashboard() {
         }
     };
 
+    // Poll voting handlers
+    const handlePollVote = async (postId: string | number, optionIds: string[]) => {
+        try {
+            if (optionIds.length === 0) {
+                // Unvote - call unvote endpoint
+                await unvoteOnPoll(postId, []);
+            } else {
+                // Vote - call vote endpoint
+                await voteOnPoll(postId, optionIds);
+            }
+            
+            // Simple refresh by reloading the page data - can be optimized later
+            window.location.reload();
+        } catch (error) {
+            console.error("Error voting on poll:", error);
+            throw error;
+        }
+    };
+
     if (loading) {
         return (
             <div className="container space-y-4">
@@ -611,10 +630,7 @@ export default function ClubDashboard() {
                                     console.log("Bookmark post", postId);
                                     // TODO: implement bookmark functionality
                                 }}
-                                onPollVote={(postId, optionIds) => {
-                                    console.log("Vote on poll", postId, optionIds);
-                                    // TODO: implement poll voting
-                                }}
+                                onPollVote={handlePollVote}
                                 userRole={userRole}
                             />
                         </div>

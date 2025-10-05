@@ -267,10 +267,35 @@ export async function listReviews(clubId: string | number): Promise<PostApi[]> {
 }
 
 export async function voteOnPoll(postId: string | number, optionIds: string[]): Promise<void> {
-    // TODO: Implement when poll voting endpoint is available
-    console.warn(`voteOnPoll: No voting endpoint available for post ${postId}, options: ${optionIds.join(', ')}`);
-    // Simulate successful vote for now
-    return Promise.resolve();
+    const response = await fetch(`/api/v1/posts/${postId}/vote`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify({ option_ids: optionIds })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to vote on poll: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+}
+
+export async function unvoteOnPoll(postId: string | number, optionIds: string[]): Promise<void> {
+    const response = await fetch(`/api/v1/posts/${postId}/unvote`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify({ option_ids: optionIds })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to unvote on poll: ${response.status} ${response.statusText} - ${errorText}`);
+    }
 }
 
 export async function createPost(data: {

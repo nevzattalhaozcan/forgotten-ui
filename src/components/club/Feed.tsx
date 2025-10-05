@@ -311,7 +311,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onCommentsLoad, onComm
                                 <div key={option.id} className="space-y-1">
                                     <button
                                         onClick={() => {
-                                            if (!hasVoted && !isExpired && onPollVote) {
+                                            if (!isExpired && onPollVote) {
                                                 if (allowMultiple) {
                                                     const currentVotes = userVote || [];
                                                     const newVotes = isSelected 
@@ -319,15 +319,22 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onCommentsLoad, onComm
                                                         : [...currentVotes, option.id];
                                                     onPollVote(post.id, newVotes);
                                                 } else {
-                                                    onPollVote(post.id, [option.id]);
+                                                    // For single choice, allow revoting by selecting different option
+                                                    // or unvoting by clicking the same option again
+                                                    if (isSelected) {
+                                                        // Unvote by passing empty array
+                                                        onPollVote(post.id, []);
+                                                    } else {
+                                                        onPollVote(post.id, [option.id]);
+                                                    }
                                                 }
                                             }
                                         }}
-                                        disabled={hasVoted || Boolean(isExpired)}
+                                        disabled={Boolean(isExpired)}
                                         className={`w-full text-left p-3 rounded-lg border transition-colors ${
                                             isSelected 
                                                 ? 'border-purple-500 bg-purple-100' 
-                                                : hasVoted || isExpired
+                                                : isExpired
                                                     ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
                                                     : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
                                         }`}
