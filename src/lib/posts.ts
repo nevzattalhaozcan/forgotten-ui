@@ -193,7 +193,7 @@ export async function listClubPosts(clubId: string | number, type?: string): Pro
 
 // New function to get club post summaries using the new endpoint
 export async function listClubPostSummaries(clubId: string | number): Promise<PostSummaryApi[]> {
-    const res = await api<{ posts: PostSummaryApi[] }>(`/api/v1/posts/${clubId}/summaries`, {
+    const res = await api<{ posts: PostSummaryApi[] }>(`/api/v1/clubs/${clubId}/posts/summaries`, {
         headers: getAuthHeaders()
     });
     return res.posts || [];
