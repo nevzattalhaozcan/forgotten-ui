@@ -5,12 +5,15 @@ function getAuthHeaders(): Record<string, string> {
     return token ? { Authorization: token } : {};
 }
 
+// Import comment types
+import type { CommentApi } from './comments';
+
 export type PostApi = {
   id: number | string;
   club_id: number | string;
   type: "discussion" | "announcement" | "post" | "poll" | "review" | "annotation";
   title: string;
-  content: string;
+  content?: string;
   type_data?: ReviewTypeData | PollTypeData | AnnotationTypeData | PostSharingTypeData;
   is_pinned?: boolean;
   likes_count?: number;
@@ -18,11 +21,109 @@ export type PostApi = {
   views_count?: number;
   user_voted?: boolean; // For polls
   user_votes?: string[]; // For polls - array of option IDs
+  user_liked?: boolean; // User's like status - if returned by API
+  is_liked?: boolean; // Alternative field name
+  likes?: LikeInfo[]; // Array of likes with user info
+  comments?: CommentApi[]; // Comments for the post (if included in response)
   created_at?: string;
   updated_at?: string;
   user_id?: number | string;
-  user?: { id: string | number; username?: string; email?: string; first_name?: string; last_name?: string };
+  user?: { 
+    id: string | number; 
+    username?: string; 
+    email?: string; 
+    first_name?: string; 
+    last_name?: string;
+    avatar_url?: string | null;
+  };
+  club?: {
+    id: number | string;
+    name: string;
+  };
 };
+
+// Post summary type for the new summaries endpoint
+export type PostSummaryApi = {
+  id: number | string;
+  title: string;
+  type: "discussion" | "announcement" | "post" | "poll" | "review" | "annotation";
+  is_pinned: boolean;
+  likes_count: number;
+  comments_count: number;
+  views_count: number;
+  user_id: number | string;
+  club_id: number | string;
+  user: {
+    id: number | string;
+    username: string;
+    avatar_url?: string | null;
+  };
+  club: {
+    id: number | string;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+};
+
+// Like information returned with posts
+export interface LikeInfo {
+  id: number | string;
+  user_id: number | string;
+  post_id: number | string;
+  created_at?: string;
+  user?: {
+    id: number | string;
+    username?: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
+// Helper function to check if current user has liked a post
+export function isPostLikedByUser(post: PostApi): boolean {
+  // First check if API provides user_liked field directly
+  if (post.user_liked !== undefined) {
+    return post.user_liked;
+  }
+  if (post.is_liked !== undefined) {
+    return post.is_liked;
+  }
+  
+  // Fallback: check if current user is in the likes array
+  const currentUserId = getCurrentUserId();
+  if (!currentUserId || !post.likes || !Array.isArray(post.likes)) {
+    return false;
+  }
+  
+  return post.likes.some(like => 
+    String(like.user_id) === String(currentUserId)
+  );
+}
+
+// Helper function to get current user ID
+function getCurrentUserId(): string | null {
+  // Get user ID from localStorage (set during login)
+  const userId = localStorage.getItem("userId");
+  if (userId) {
+    return userId;
+  }
+  
+  // Fallback: try to get from token if userId is not available
+  try {
+    const token = localStorage.getItem("token");
+    if (token) {
+      // If token is JWT, decode it to get user ID
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id || payload.id || payload.sub;
+    }
+  } catch (error) {
+    console.warn("Failed to decode user ID from token:", error);
+  }
+  
+  return null;
+}
 
 // Type-specific data interfaces
 export interface ReviewTypeData {
@@ -88,6 +189,22 @@ export async function listPosts(filters?: {
 
 export async function listClubPosts(clubId: string | number, type?: string): Promise<PostApi[]> {
     return listPosts({ club_id: clubId, type });
+}
+
+// New function to get club post summaries using the new endpoint
+export async function listClubPostSummaries(clubId: string | number): Promise<PostSummaryApi[]> {
+    const res = await api<{ posts: PostSummaryApi[] }>(`/api/v1/posts/${clubId}/summaries`, {
+        headers: getAuthHeaders()
+    });
+    return res.posts || [];
+}
+
+// Function to get comments for a specific post
+export async function getPostComments(postId: string | number): Promise<CommentApi[]> {
+    const res = await api<{ comments: CommentApi[] }>(`/api/v1/posts/${postId}/comments`, {
+        headers: getAuthHeaders()
+    });
+    return res.comments || [];
 }
 
 export async function listDiscussions(clubId: string | number): Promise<PostApi[]> {

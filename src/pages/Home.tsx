@@ -103,7 +103,7 @@ const Home: React.FC = () => {
             clubId: p.club_id,
             clubName: clubMap.get(p.club_id)?.name,
             title: p.title,
-            content: p.content,
+            content: p.content || "",
             author: p.user?.username || p.user?.email || "Member",
             createdISO: p.created_at
           }));

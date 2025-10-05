@@ -119,7 +119,7 @@ const ClubDetails: React.FC = () => {
             .map(post => ({
               id: post.id,
               title: post.title || "",
-              content: post.content,
+              content: post.content || "",
               type: post.type,
               created_at: post.created_at || new Date().toISOString(),
               user: post.user ? {

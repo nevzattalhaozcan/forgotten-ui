@@ -15,13 +15,15 @@ import Reading from "../components/club/Reading";
 import Tabs from "../components/common/Tabs";
 
 import { getClub, type ClubApi } from "../lib/clubs";
-import { listClubPosts, createPost } from "../lib/posts";
+import { listClubPostSummaries, getPostComments, createPost, type PostSummaryApi } from "../lib/posts";
 import { listClubEvents, createEvent } from "../lib/events";
 import { listClubBooks, assignBook, addReadingLog, listReadingLogs, type BookApi, type ReadingLogApi } from "../lib/books";
 
-import { likePost } from "../lib/likes";
+import { likePost, unlikePost } from "../lib/likes";
+import { createComment, deleteComment, likeComment, unlikeComment, isCommentLikedByUser, type CommentApi } from "../lib/comments";
 
 import { currentSession } from "../data/session";
+import { type Role } from "../data/session";
 import ModerationPanel from "../components/club/ModerationPanel";
 
 // Enhanced types based on API capabilities
@@ -35,18 +37,20 @@ type ClubMember = {
   location?: string;
 };
 
-type FeedPost = {
+interface FeedPost {
   id: string;
   authorId: string;
   authorName: string;
-  authorRole: "member" | "moderator" | "owner";
+  authorRole: Role;
   type: "discussion" | "announcement" | "event" | "poll" | "review" | "annotation" | "post";
   content: string;
   title?: string;
-  createdAtISO: string;
   likes?: number;
   comments?: number;
-};
+  createdAtISO: string;
+  userLiked?: boolean;
+  commentsData?: CommentApi[];
+}
 
 type ClubEvent = {
   id: string;
@@ -158,23 +162,29 @@ export default function ClubDashboard() {
                 setMembers(embeddedMembers);
 
                 // 3) Load club posts with enhanced metadata
-                const clubPosts = await listClubPosts(clubId);
+                const clubPosts = await listClubPostSummaries(clubId);
+                console.log("ClubDashboard - Raw club posts:", clubPosts);
+                
                 const mappedPosts = clubPosts
-                    .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-                    .map((p): FeedPost => ({
-                        id: String(p.id),
-                        authorId: String(p.user?.id ?? "unknown"),
-                        authorName: p.user?.first_name && p.user?.last_name 
-                            ? `${p.user.first_name} ${p.user.last_name}`
-                            : p.user?.username || p.user?.email || "Member",
-                        authorRole: "member", // TODO: Map from club member role
-                        type: p.type,
-                        content: p.content,
-                        title: p.title,
-                        createdAtISO: p.created_at ?? new Date().toISOString(),
-                        likes: 0, // TODO: Implement when like API is available
-                        comments: 0, // TODO: Implement when comment count API is available
-                    }));
+                    .sort((a: PostSummaryApi, b: PostSummaryApi) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+                    .map((p: PostSummaryApi): FeedPost => {
+                        console.log(`ClubDashboard - Post ${p.id}: likes_count=${p.likes_count}, comments_count=${p.comments_count}`);
+                        
+                        return {
+                            id: String(p.id),
+                            authorId: String(p.user?.id ?? "unknown"),
+                            authorName: p.user?.username || "Member",
+                            authorRole: "member" as Role, // TODO: Map from club member role
+                            type: p.type,
+                            content: "", // Content not available in summary, will be loaded when clicking
+                            title: p.title,
+                            createdAtISO: p.created_at ?? new Date().toISOString(),
+                            likes: p.likes_count || 0,
+                            comments: p.comments_count || 0,
+                            userLiked: false, // Will be determined when loading full post details
+                            commentsData: [], // Will be loaded when clicking on comments
+                        };
+                    });
                 setPosts(mappedPosts);
 
                 // 4) Load club events with RSVP status
@@ -291,11 +301,123 @@ export default function ClubDashboard() {
                     createdAtISO: post.created_at ?? new Date().toISOString(),
                     likes: 0,
                     comments: 0,
+                    userLiked: false,
+                    commentsData: [],
                 },
                 ...prev,
             ]);
         } catch (error) {
             console.error("Error creating post:", error);
+        }
+    };
+
+    // Comment handlers
+    const handleCommentsLoad = async (postId: string | number): Promise<void> => {
+        try {
+            const comments = await getPostComments(postId);
+            
+            // Update the post's comments data
+            setPosts(prev => prev.map(p => 
+                p.id === String(postId) 
+                    ? { 
+                        ...p, 
+                        commentsData: comments
+                    } 
+                    : p
+            ));
+        } catch (error) {
+            console.error("Error loading comments:", error);
+            throw error;
+        }
+    };
+
+    const handleCommentCreate = async (postId: string | number, content: string) => {
+        try {
+            const comment = await createComment(postId, content);
+            
+            // Update the post's comments data and count
+            setPosts(prev => prev.map(p => 
+                p.id === String(postId) 
+                    ? { 
+                        ...p, 
+                        comments: (p.comments || 0) + 1,
+                        commentsData: [...(p.commentsData || []), comment]
+                    } 
+                    : p
+            ));
+        } catch (error) {
+            console.error("Error creating comment:", error);
+            throw error;
+        }
+    };
+
+    const handleCommentDelete = async (postId: string | number, commentId: string | number) => {
+        try {
+            await deleteComment(commentId);
+            
+            // Update the post's comments data and count
+            setPosts(prev => prev.map(p => 
+                p.id === String(postId) 
+                    ? { 
+                        ...p, 
+                        comments: Math.max((p.comments || 0) - 1, 0),
+                        commentsData: p.commentsData?.filter(c => c.id !== commentId) || []
+                    } 
+                    : p
+            ));
+        } catch (error) {
+            console.error("Error deleting comment:", error);
+            throw error;
+        }
+    };
+
+    const handleCommentLike = async (commentId: string | number) => {
+        try {
+            // Find the comment to check if it's already liked
+            let targetComment: CommentApi | null = null;
+            posts.forEach(post => {
+                const comment = post.commentsData?.find(c => c.id === commentId);
+                if (comment) targetComment = comment;
+            });
+
+            if (!targetComment) return;
+
+            const isCurrentlyLiked = isCommentLikedByUser(targetComment);
+            
+            if (isCurrentlyLiked) {
+                await unlikeComment(commentId);
+                // Update comment like status
+                setPosts(prev => prev.map(p => ({
+                    ...p,
+                    commentsData: p.commentsData?.map(c => 
+                        c.id === commentId 
+                            ? { 
+                                ...c, 
+                                user_liked: false,
+                                likes_count: Math.max((c.likes_count || 0) - 1, 0)
+                            } 
+                            : c
+                    ) || []
+                })));
+            } else {
+                await likeComment(commentId);
+                // Update comment like status
+                setPosts(prev => prev.map(p => ({
+                    ...p,
+                    commentsData: p.commentsData?.map(c => 
+                        c.id === commentId 
+                            ? { 
+                                ...c, 
+                                user_liked: true,
+                                likes_count: (c.likes_count || 0) + 1
+                            } 
+                            : c
+                    ) || []
+                })));
+            }
+        } catch (error) {
+            console.error("Error toggling comment like:", error);
+            throw error;
         }
     };
 
@@ -406,7 +528,7 @@ export default function ClubDashboard() {
                             <Feed 
                                 posts={posts.map(post => ({
                                     ...post,
-                                    isLikedByUser: false, // TODO: implement user like tracking
+                                    isLikedByUser: post.userLiked || false,
                                     isBookmarked: false, // TODO: implement bookmarking
                                     // Add enhanced data for polls and reviews
                                     ...(post.type === "poll" && {
@@ -431,24 +553,43 @@ export default function ClubDashboard() {
                                 onCreate={addPost}
                                 onLike={async (postId) => {
                                     try {
-                                        await likePost(postId);
-                                        // Update like count in local state
-                                        setPosts(prev => prev.map(p => 
-                                            p.id === postId 
-                                                ? { ...p, likes: (p.likes || 0) + 1 }
-                                                : p
-                                        ));
+                                        // Find the current post to check like status
+                                        const currentPost = posts.find(p => p.id === postId);
+                                        const isCurrentlyLiked = currentPost?.userLiked || false;
+                                        
+                                        if (isCurrentlyLiked) {
+                                            // Unlike the post
+                                            await unlikePost(postId);
+                                            setPosts(prev => prev.map(p => 
+                                                p.id === postId 
+                                                    ? { 
+                                                        ...p, 
+                                                        likes: Math.max((p.likes || 0) - 1, 0),
+                                                        userLiked: false
+                                                    }
+                                                    : p
+                                            ));
+                                        } else {
+                                            // Like the post
+                                            await likePost(postId);
+                                            setPosts(prev => prev.map(p => 
+                                                p.id === postId 
+                                                    ? { 
+                                                        ...p, 
+                                                        likes: (p.likes || 0) + 1,
+                                                        userLiked: true
+                                                    }
+                                                    : p
+                                            ));
+                                        }
                                     } catch (error) {
-                                        console.error("Failed to like post:", error);
+                                        console.error("Failed to toggle like on post:", error);
                                     }
                                 }}
-                                onComment={(postId: string | number) => {
-                                    const comment = prompt("Add a comment:");
-                                    if (comment) {
-                                        console.log("Add comment to post", postId, comment);
-                                        // TODO: implement comment functionality
-                                    }
-                                }}
+                                onCommentsLoad={handleCommentsLoad}
+                                onCommentCreate={handleCommentCreate}
+                                onCommentDelete={handleCommentDelete}
+                                onCommentLike={handleCommentLike}
                                 onBookmark={(postId) => {
                                     console.log("Bookmark post", postId);
                                     // TODO: implement bookmark functionality
@@ -578,7 +719,7 @@ export default function ClubDashboard() {
                         <Feed 
                             posts={posts.map(post => ({
                                 ...post,
-                                isLikedByUser: false,
+                                isLikedByUser: post.userLiked || false,
                                 isBookmarked: false,
                             }))}
                             filterType="discussion"
@@ -599,22 +740,40 @@ export default function ClubDashboard() {
                             }}
                             onLike={async (postId) => {
                                 try {
-                                    await likePost(postId);
-                                    setPosts(prev => prev.map(p => 
-                                        p.id === postId 
-                                            ? { ...p, likes: (p.likes || 0) + 1 }
-                                            : p
-                                    ));
+                                    const currentPost = posts.find(p => p.id === postId);
+                                    const isCurrentlyLiked = currentPost?.userLiked || false;
+                                    
+                                    if (isCurrentlyLiked) {
+                                        await unlikePost(postId);
+                                        setPosts(prev => prev.map(p => 
+                                            p.id === postId 
+                                                ? { 
+                                                    ...p, 
+                                                    likes: Math.max((p.likes || 0) - 1, 0),
+                                                    userLiked: false
+                                                }
+                                                : p
+                                        ));
+                                    } else {
+                                        await likePost(postId);
+                                        setPosts(prev => prev.map(p => 
+                                            p.id === postId 
+                                                ? { 
+                                                    ...p, 
+                                                    likes: (p.likes || 0) + 1,
+                                                    userLiked: true
+                                                }
+                                                : p
+                                        ));
+                                    }
                                 } catch (error) {
-                                    console.error("Failed to like post:", error);
+                                    console.error("Failed to toggle like on discussion:", error);
                                 }
                             }}
-                            onComment={(postId: string | number) => {
-                                const comment = prompt("Add a comment:");
-                                if (comment) {
-                                    console.log("Add comment to discussion", postId, comment);
-                                }
-                            }}
+                            onCommentsLoad={handleCommentsLoad}
+                            onCommentCreate={handleCommentCreate}
+                            onCommentDelete={handleCommentDelete}
+                            onCommentLike={handleCommentLike}
                             onBookmark={(postId) => {
                                 console.log("Bookmark discussion", postId);
                             }}
@@ -626,7 +785,7 @@ export default function ClubDashboard() {
                         <Feed 
                             posts={posts.map(post => ({
                                 ...post,
-                                isLikedByUser: false,
+                                isLikedByUser: post.userLiked || false,
                                 isBookmarked: false,
                                 ...(post.type === "review" && {
                                     reviewData: {
@@ -653,22 +812,40 @@ export default function ClubDashboard() {
                             }}
                             onLike={async (postId) => {
                                 try {
-                                    await likePost(postId);
-                                    setPosts(prev => prev.map(p => 
-                                        p.id === postId 
-                                            ? { ...p, likes: (p.likes || 0) + 1 }
-                                            : p
-                                    ));
+                                    const currentPost = posts.find(p => p.id === postId);
+                                    const isCurrentlyLiked = currentPost?.userLiked || false;
+                                    
+                                    if (isCurrentlyLiked) {
+                                        await unlikePost(postId);
+                                        setPosts(prev => prev.map(p => 
+                                            p.id === postId 
+                                                ? { 
+                                                    ...p, 
+                                                    likes: Math.max((p.likes || 0) - 1, 0),
+                                                    userLiked: false
+                                                }
+                                                : p
+                                        ));
+                                    } else {
+                                        await likePost(postId);
+                                        setPosts(prev => prev.map(p => 
+                                            p.id === postId 
+                                                ? { 
+                                                    ...p, 
+                                                    likes: (p.likes || 0) + 1,
+                                                    userLiked: true
+                                                }
+                                                : p
+                                        ));
+                                    }
                                 } catch (error) {
-                                    console.error("Failed to like post:", error);
+                                    console.error("Failed to toggle like on review:", error);
                                 }
                             }}
-                            onComment={(postId: string | number) => {
-                                const comment = prompt("Add a comment:");
-                                if (comment) {
-                                    console.log("Add comment to review", postId, comment);
-                                }
-                            }}
+                            onCommentsLoad={handleCommentsLoad}
+                            onCommentCreate={handleCommentCreate}
+                            onCommentDelete={handleCommentDelete}
+                            onCommentLike={handleCommentLike}
                             onBookmark={(postId) => {
                                 console.log("Bookmark review", postId);
                             }}

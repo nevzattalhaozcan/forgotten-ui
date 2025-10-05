@@ -3,6 +3,7 @@ import Card from "../common/Card";
 import { type Post } from "../../data/clubDetail";
 import RoleGate from "./RoleGate";
 import type { ReviewTypeData, AnnotationTypeData, PostSharingTypeData } from "../../lib/posts";
+import type { CommentApi } from "../../lib/comments";
 
 // Type for creating polls (without id and votes)
 interface PollCreationTypeData {
@@ -26,6 +27,7 @@ interface EnhancedPost extends Post {
         rating: number;
         bookTitle?: string;
     };
+    commentsData?: CommentApi[]; // Actual comment data
     attachments?: {
         type: "image" | "file";
         url: string;
@@ -58,7 +60,10 @@ function getPostTypeInfo(type: string) {
 interface Props {
     posts: EnhancedPost[];
     onLike: (id: string | number) => void;
-    onComment: (id: string | number) => void;
+    onCommentsLoad?: (postId: string | number) => Promise<void>;
+    onCommentCreate?: (postId: string | number, content: string) => Promise<void>;
+    onCommentDelete?: (postId: string | number, commentId: string | number) => Promise<void>;
+    onCommentLike?: (commentId: string | number) => Promise<void>;
     onBookmark?: (id: string | number) => void;
     onPollVote?: (postId: string | number, optionIds: string[]) => void;
     onCreate: (title: string, content: string, type: "discussion" | "announcement" | "post" | "poll" | "review" | "annotation", typeData?: ReviewTypeData | PollCreationTypeData | AnnotationTypeData | PostSharingTypeData) => void;
@@ -66,7 +71,7 @@ interface Props {
     filterType?: "discussion" | "review" | null;
 }
 
-const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark, onPollVote, filterType }) => {
+const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onCommentsLoad, onCommentCreate, onCommentDelete, onCommentLike, onBookmark, onPollVote, filterType }) => {
     const [title, setTitle] = useState("");
     const [text, setText] = useState("");
     const [as, setAs] = useState<"announcement" | "post" | "poll" | "discussion" | "review">("post");
@@ -82,6 +87,12 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
     
     // UI state
     const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
+    const [isShareFormOpen, setIsShareFormOpen] = useState(false);
+    
+    // Comment state
+    const [showCommentsFor, setShowCommentsFor] = useState<Set<string>>(new Set());
+    const [newComments, setNewComments] = useState<Record<string, string>>({});
+    const [commentLoading, setCommentLoading] = useState<Set<string>>(new Set());
 
     // Filter posts based on type if specified
     const filteredPosts = filterType 
@@ -132,20 +143,6 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
                 placeholder: "Ask the community a question...", 
                 titlePlaceholder: "What would you like to ask?",
                 description: "Get community input on decisions"
-            },
-            { 
-                value: "discussion", 
-                label: "� Discussion", 
-                placeholder: "Start a conversation...", 
-                titlePlaceholder: "What would you like to discuss?",
-                description: "Start a community discussion"
-            },
-            { 
-                value: "review", 
-                label: "⭐ Review", 
-                placeholder: "Share your book review...", 
-                titlePlaceholder: "Which book are you reviewing?",
-                description: "Rate and review a book"
             }
         ] as const;
     };
@@ -185,7 +182,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
         
         onCreate(title.trim(), text.trim(), as, typeData);
         
-        // Reset form
+        // Reset form and close the share section
         setText("");
         setTitle("");
         setPollOptions(["", ""]);
@@ -193,6 +190,63 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
         setExpiresAt("");
         setRating(0);
         setBookTitle("");
+        setIsShareFormOpen(false);
+    };
+
+    // Comment handlers
+    const handleCommentSubmit = async (postId: string) => {
+        const content = newComments[postId]?.trim();
+        if (!content || !onCommentCreate) return;
+        
+        setCommentLoading(prev => new Set([...prev, postId]));
+        try {
+            await onCommentCreate(postId, content);
+            setNewComments(prev => ({ ...prev, [postId]: "" }));
+        } catch (error) {
+            console.error("Failed to create comment:", error);
+        } finally {
+            setCommentLoading(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(postId);
+                return newSet;
+            });
+        }
+    };
+
+    const handleCommentDelete = async (postId: string, commentId: string) => {
+        if (!onCommentDelete) return;
+        try {
+            await onCommentDelete(postId, commentId);
+        } catch (error) {
+            console.error("Failed to delete comment:", error);
+        }
+    };
+
+    const handleCommentLike = async (commentId: string) => {
+        if (!onCommentLike) return;
+        try {
+            await onCommentLike(commentId);
+        } catch (error) {
+            console.error("Failed to like comment:", error);
+        }
+    };
+
+    const toggleComments = async (postId: string) => {
+        setShowCommentsFor(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(postId)) {
+                newSet.delete(postId);
+            } else {
+                newSet.add(postId);
+                // Load comments when showing them for the first time
+                if (onCommentsLoad) {
+                    onCommentsLoad(postId).catch(error => {
+                        console.error("Failed to load comments:", error);
+                    });
+                }
+            }
+            return newSet;
+        });
     };
 
     const toggleExpanded = (postId: string) => {
@@ -300,151 +354,181 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
     return (
         <div className="space-y-4" data-testid="feed-component">
             <RoleGate allow={["member", "moderator", "owner"]}>
-                <Card 
-                    title={filterType === "discussion" ? "Start a Discussion" : filterType === "review" ? "Write a Review" : "Share to feed"} 
-                    data-testid="share-to-feed-card"
-                >
-                    <div className="space-y-4">
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder={availablePostTypes.find(t => t.value === as)?.titlePlaceholder || "Title..."}
-                            className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            data-testid="post-title-input"
-                        />
-                        
-                        {as === "review" && (
-                            <div className="space-y-3 p-3 bg-yellow-50 rounded-lg">
-                                <input
-                                    type="text"
-                                    value={bookTitle}
-                                    onChange={(e) => setBookTitle(e.target.value)}
-                                    placeholder="Book title (optional)..."
-                                    className="w-full rounded-lg border border-yellow-300 p-2 text-sm"
-                                    data-testid="review-book-title-input"
-                                />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-yellow-700">Rating:</span>
-                                    {renderStars(rating, true, setRating)}
-                                </div>
-                            </div>
-                        )}
-                        
-                        <textarea
-                            className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            placeholder={availablePostTypes.find(t => t.value === as)?.placeholder || "Write something..."}
-                            value={text}
-                            onChange={(e) => setText(e.target.value)}
-                            rows={4}
-                            data-testid="post-content-input"
-                        />
-                        
-                        {/* Type-specific form fields */}
-                        {as === "poll" && (
-                            <div className="space-y-3 p-3 bg-purple-50 rounded-lg" data-testid="poll-form">
-                                <div className="text-sm font-medium text-purple-700">Poll Options</div>
-                                {pollOptions.map((option, index) => (
-                                    <div key={index} className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={option}
-                                            onChange={(e) => {
-                                                const newOptions = [...pollOptions];
-                                                newOptions[index] = e.target.value;
-                                                setPollOptions(newOptions);
-                                            }}
-                                            placeholder={`Option ${index + 1}`}
-                                            className="flex-1 rounded-lg border border-purple-300 p-2 text-sm"
-                                            data-testid={`poll-option-${index}`}
-                                        />
-                                        {pollOptions.length > 2 && (
-                                            <button
-                                                onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}
-                                                className="text-red-500 hover:text-red-700 px-2"
-                                                data-testid={`remove-poll-option-${index}`}
-                                            >
-                                                ×
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <div className="flex justify-between items-center">
-                                    <button
-                                        onClick={() => setPollOptions([...pollOptions, ""])}
-                                        className="text-sm text-purple-600 hover:text-purple-800"
-                                        data-testid="add-poll-option"
-                                    >
-                                        + Add Option
-                                    </button>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={allowMultiple}
-                                            onChange={(e) => setAllowMultiple(e.target.checked)}
-                                            data-testid="poll-allow-multiple"
-                                        />
-                                        Allow multiple choices
-                                    </label>
-                                </div>
-                                <input
-                                    type="datetime-local"
-                                    value={expiresAt}
-                                    onChange={(e) => setExpiresAt(e.target.value)}
-                                    className="w-full rounded-lg border border-purple-300 p-2 text-sm"
-                                    placeholder="Poll expiration (optional)"
-                                    data-testid="poll-expires-at"
-                                />
-                            </div>
-                        )}
-                        
+                <Card data-testid="share-to-feed-card">
+                    {/* Collapsible Header */}
+                    <div 
+                        className="cursor-pointer select-none"
+                        onClick={() => setIsShareFormOpen(!isShareFormOpen)}
+                        data-testid="share-form-toggle"
+                    >
                         <div className="flex items-center justify-between">
-                            {!filterType && (
-                                <div className="flex flex-wrap gap-2" data-testid="post-type-selector">
-                                    {availablePostTypes.map(type => (
-                                        <label 
-                                            key={type.value} 
-                                            className={`relative flex items-center gap-2 cursor-pointer p-2 rounded-lg border-2 transition-all duration-200 ${
-                                                as === type.value 
-                                                    ? 'border-blue-500 bg-blue-50 shadow-sm' 
-                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                            data-testid={`post-type-${type.value}`}
-                                        >
-                                            <input 
-                                                type="radio" 
-                                                name="postType"
-                                                value={type.value}
-                                                checked={as === type.value} 
-                                                onChange={() => setAs(type.value as "announcement" | "post" | "poll" | "discussion" | "review")} 
-                                                className="sr-only"
-                                            />
-                                            <div className="flex flex-col">
-                                                <span className={`text-xs font-medium ${
-                                                    as === type.value ? 'text-blue-700' : 'text-gray-900'
-                                                }`}>
-                                                    {type.label}
-                                                </span>
-                                                <span className={`text-xs ${
-                                                    as === type.value ? 'text-blue-600' : 'text-gray-500'
-                                                }`}>
-                                                    {type.description}
-                                                </span>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                            )}
-                            <button 
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                onClick={handlePublish}
-                                disabled={!title.trim() || !text.trim()}
-                                data-testid="publish-post-button"
-                            >
-                                {filterType === "discussion" ? "Start Discussion" : filterType === "review" ? "Publish Review" : "Publish"}
-                            </button>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    {filterType === "discussion" ? "Start a Discussion" : filterType === "review" ? "Write a Review" : "Share to feed"}
+                                </h3>
+                                {!isShareFormOpen && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        Click here to {filterType === "discussion" ? "start a discussion" : filterType === "review" ? "write a review" : "share your thoughts"}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <svg 
+                                    className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isShareFormOpen ? 'rotate-180' : ''}`}
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Collapsible Form Content */}
+                    {isShareFormOpen && (
+                        <div className="mt-4 space-y-4 border-t border-gray-100 pt-4" data-testid="share-form-content">
+                            <input
+                                type="text"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder={availablePostTypes.find(t => t.value === as)?.titlePlaceholder || "Title..."}
+                                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                data-testid="post-title-input"
+                            />
+                            
+                            {as === "review" && (
+                                <div className="space-y-3 p-3 bg-yellow-50 rounded-lg">
+                                    <input
+                                        type="text"
+                                        value={bookTitle}
+                                        onChange={(e) => setBookTitle(e.target.value)}
+                                        placeholder="Book title (optional)..."
+                                        className="w-full rounded-lg border border-yellow-300 p-2 text-sm"
+                                        data-testid="review-book-title-input"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-yellow-700">Rating:</span>
+                                        {renderStars(rating, true, setRating)}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <textarea
+                                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                placeholder={availablePostTypes.find(t => t.value === as)?.placeholder || "Write something..."}
+                                value={text}
+                                onChange={(e) => setText(e.target.value)}
+                                rows={4}
+                                data-testid="post-content-input"
+                            />
+                            
+                            {/* Type-specific form fields */}
+                            {as === "poll" && (
+                                <div className="space-y-3 p-3 bg-purple-50 rounded-lg" data-testid="poll-form">
+                                    <div className="text-sm font-medium text-purple-700">Poll Options</div>
+                                    {pollOptions.map((option, index) => (
+                                        <div key={index} className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={option}
+                                                onChange={(e) => {
+                                                    const newOptions = [...pollOptions];
+                                                    newOptions[index] = e.target.value;
+                                                    setPollOptions(newOptions);
+                                                }}
+                                                placeholder={`Option ${index + 1}`}
+                                                className="flex-1 rounded-lg border border-purple-300 p-2 text-sm"
+                                                data-testid={`poll-option-${index}`}
+                                            />
+                                            {pollOptions.length > 2 && (
+                                                <button
+                                                    onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}
+                                                    className="text-red-500 hover:text-red-700 px-2"
+                                                    data-testid={`remove-poll-option-${index}`}
+                                                >
+                                                    ×
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-between items-center">
+                                        <button
+                                            onClick={() => setPollOptions([...pollOptions, ""])}
+                                            className="text-sm text-purple-600 hover:text-purple-800"
+                                            data-testid="add-poll-option"
+                                        >
+                                            + Add Option
+                                        </button>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={allowMultiple}
+                                                onChange={(e) => setAllowMultiple(e.target.checked)}
+                                                data-testid="poll-allow-multiple"
+                                            />
+                                            Allow multiple choices
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="datetime-local"
+                                        value={expiresAt}
+                                        onChange={(e) => setExpiresAt(e.target.value)}
+                                        className="w-full rounded-lg border border-purple-300 p-2 text-sm"
+                                        placeholder="Poll expiration (optional)"
+                                        data-testid="poll-expires-at"
+                                    />
+                                </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between">
+                                {!filterType && (
+                                    <div className="flex flex-wrap gap-2" data-testid="post-type-selector">
+                                        {availablePostTypes.map(type => (
+                                            <label 
+                                                key={type.value} 
+                                                className={`relative flex items-center gap-2 cursor-pointer p-2 rounded-lg border-2 transition-all duration-200 ${
+                                                    as === type.value 
+                                                        ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                                data-testid={`post-type-${type.value}`}
+                                            >
+                                                <input 
+                                                    type="radio" 
+                                                    name="postType"
+                                                    value={type.value}
+                                                    checked={as === type.value} 
+                                                    onChange={() => setAs(type.value as "announcement" | "post" | "poll" | "discussion" | "review")} 
+                                                    className="sr-only"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className={`text-xs font-medium ${
+                                                        as === type.value ? 'text-blue-700' : 'text-gray-900'
+                                                    }`}>
+                                                        {type.label}
+                                                    </span>
+                                                    <span className={`text-xs ${
+                                                        as === type.value ? 'text-blue-600' : 'text-gray-500'
+                                                    }`}>
+                                                        {type.description}
+                                                    </span>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                                <button 
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    onClick={handlePublish}
+                                    disabled={!title.trim() || !text.trim()}
+                                    data-testid="publish-post-button"
+                                >
+                                    {filterType === "discussion" ? "Start Discussion" : filterType === "review" ? "Publish Review" : "Publish"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </Card>
             </RoleGate>
 
@@ -546,7 +630,7 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
                                         {post.likes || 0}
                                     </button>
                                     <button 
-                                        onClick={() => onComment?.(post.id)}
+                                        onClick={() => toggleComments(String(post.id))}
                                         className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 transition-colors"
                                         data-testid={`post-comment-${post.id}`}
                                     >
@@ -575,6 +659,81 @@ const Feed: React.FC<Props> = ({ posts, onCreate, onLike, onComment, onBookmark,
                                     )}
                                 </div>
                             </div>
+
+                            {/* Comments Section */}
+                            {showCommentsFor.has(String(post.id)) && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                    {/* Existing Comments */}
+                                    {post.commentsData && post.commentsData.length > 0 && (
+                                        <div className="space-y-3 mb-4">
+                                            {post.commentsData.map(comment => (
+                                                <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-sm font-medium text-gray-900">
+                                                                    {comment.user?.first_name && comment.user?.last_name 
+                                                                        ? `${comment.user.first_name} ${comment.user.last_name}`
+                                                                        : comment.user?.username || "Member"}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500">
+                                                                    {since(comment.created_at)}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-800">{comment.content}</p>
+                                                            
+                                                            {/* Comment Actions */}
+                                                            <div className="flex items-center gap-3 mt-2">
+                                                                <button
+                                                                    onClick={() => handleCommentLike(String(comment.id))}
+                                                                    className={`flex items-center gap-1 text-xs transition-colors ${
+                                                                        comment.user_liked 
+                                                                            ? 'text-red-500' 
+                                                                            : 'text-gray-500 hover:text-red-500'
+                                                                    }`}
+                                                                >
+                                                                    <svg className={`w-3 h-3 ${comment.user_liked ? 'fill-current' : 'fill-none'}`} stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                                                    </svg>
+                                                                    {comment.likes_count || 0}
+                                                                </button>
+                                                                
+                                                                {/* Delete button for own comments */}
+                                                                {comment.user_id && localStorage.getItem("userId") === String(comment.user_id) && (
+                                                                    <button
+                                                                        onClick={() => handleCommentDelete(String(post.id), String(comment.id))}
+                                                                        className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                                                                    >
+                                                                        Delete
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Add Comment Form */}
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            value={newComments[String(post.id)] || ""}
+                                            onChange={(e) => setNewComments(prev => ({ ...prev, [String(post.id)]: e.target.value }))}
+                                            placeholder="Write a comment..."
+                                            className="flex-1 p-2 border border-gray-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            rows={2}
+                                        />
+                                        <button
+                                            onClick={() => handleCommentSubmit(String(post.id))}
+                                            disabled={!newComments[String(post.id)]?.trim() || commentLoading.has(String(post.id))}
+                                            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors"
+                                        >
+                                            {commentLoading.has(String(post.id)) ? "..." : "Post"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </Card>
                 );
