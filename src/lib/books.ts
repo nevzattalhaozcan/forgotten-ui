@@ -72,28 +72,92 @@ export async function searchBooks(q: string, opts?: { limit?: number; source?: "
     const source = opts?.source ?? "all";
 
     const params = new URLSearchParams({ q: q.trim(), limit: String(limit), source });
-    const res = await api<Record<string, unknown>>(`/api/v1/books?${params.toString()}`);
+    const res = await api<unknown>(`/api/v1/books?${params.toString()}`);
 
     if (!res) return [];
 
-    // Prefer shape { books: BookResponse[] }
-    const maybeBooks = (res as Record<string, unknown>)['books'];
-    if (Array.isArray(maybeBooks)) {
-        return maybeBooks as BookResponse[];
+    // If API returned an array directly
+    if (Array.isArray(res)) return res as unknown as BookResponse[];
+
+    // Common shapes: { books: [...] } | { data: [...] } | { results: [...] }
+    const obj = res as Record<string, unknown>;
+    const candidates = ['books', 'data', 'results', 'items'];
+    for (const key of candidates) {
+        const val = obj[key];
+        if (Array.isArray(val)) return val as unknown as BookResponse[];
     }
 
-    // If the api helper returned an array directly (edge case)
-    if (Array.isArray(res)) {
-        return res as unknown as BookResponse[];
+    // Fallback: find first array property that looks like an array of books (has title)
+    for (const k of Object.keys(obj)) {
+        const v = obj[k];
+        if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object' && v[0] !== null) {
+            const first = v[0] as Record<string, unknown>;
+            if (typeof first['title'] === 'string') {
+                return v as unknown as BookResponse[];
+            }
+        }
+    }
+
+    // Dev-time debug to help discover unexpected shapes
+    if (import.meta.env.DEV) {
+        console.debug('searchBooks: unexpected response shape for query', q, res);
     }
 
     return [];
 }
 
-export async function listClubBooks(): Promise<BookApi[]> {
-    // Use general books endpoint since there's no club-specific book endpoint
-    const res = await api<BookApi[] | { books: BookApi[] }>(`/api/v1/books`);
-    return Array.isArray(res) ? res : (res.books ?? []);
+export async function listClubBooks(clubId?: string | number): Promise<BookApi[]> {
+    // Prefer club-specific reading assignments endpoint which contains embedded book objects.
+    if (!clubId) {
+        console.warn("listClubBooks called without clubId — skipping call to /api/v1/books to avoid required-q error");
+        return [];
+    }
+
+    try {
+        const res = await api<unknown>(`/api/v1/clubs/${clubId}/reading`);
+        if (!Array.isArray(res)) return [];
+
+        const out: BookApi[] = [];
+        for (const item of res) {
+            if (!item || typeof item !== 'object') continue;
+            const rec = item as Record<string, unknown>;
+            const bookObj = rec['book'];
+            if (!bookObj || typeof bookObj !== 'object') continue;
+            const book = bookObj as Record<string, unknown>;
+
+            const id = book['id'] as number | string | undefined;
+            const title = (book['title'] as string) ?? String(id ?? 'Unknown');
+            const author = (book['author'] as string) ?? '';
+            const isbn = book['isbn'] as string | undefined;
+            const pages = (book['pages'] as number | undefined) ?? undefined;
+            const club_id = (rec['club_id'] as number | string | undefined) ?? clubId;
+            const assigned_date = rec['start_date'] as string | undefined;
+            const target_date = rec['due_date'] as string | undefined;
+            const status = (rec['status'] as string | undefined) ?? 'current';
+            const created_at = (book['created_at'] as string | undefined) ?? new Date().toISOString();
+
+            const idVal = id as number | string | undefined;
+            const clubIdVal = club_id as number | string | undefined;
+            const statusVal = status as BookApi['status'];
+            out.push({
+                id: (idVal ?? 0) as number | string,
+                title,
+                author,
+                isbn,
+                pages,
+                club_id: (clubIdVal ?? clubId) as number | string,
+                assigned_date,
+                target_date,
+                status: statusVal ?? 'current',
+                created_at
+            });
+        }
+
+        return out;
+    } catch (err) {
+        console.warn('listClubBooks: failed to fetch club reading assignments', err);
+        return [];
+    }
 }
 
 async function createBook(data: {

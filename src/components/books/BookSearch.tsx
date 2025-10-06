@@ -34,7 +34,7 @@ export default function BookSearch({ minChars = 3, debounceMs = 300, initialQuer
   // Simple client cache (in-memory). Keyed by query string.
   const cacheRef = useRef<Map<string, BookResponse[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
 
   const fetchResults = useCallback(async (q: string, attempts = 0): Promise<BookResponse[]> => {
@@ -50,7 +50,36 @@ export default function BookSearch({ minChars = 3, debounceMs = 300, initialQuer
         await new Promise(r => setTimeout(r, Math.min(1000 * 2 ** attempts, 10000)));
         return await fetchResults(q, attempts + 1);
       }
-      setError(err as Error);
+      // Try to extract meaningful message from common API error shapes
+      try {
+        const e = err as unknown;
+        if (e && typeof e === 'object' && e !== null) {
+          const rec = e as Record<string, unknown>;
+          const maybeDetail = rec['detail'];
+          if (maybeDetail && typeof maybeDetail === 'object') {
+            const d = maybeDetail as Record<string, unknown>;
+            if (typeof d['message'] === 'string') {
+              setError(d['message'] as string);
+            } else if (typeof d['error'] === 'string') {
+              setError(d['error'] as string);
+            } else {
+              setError(String(d));
+            }
+          } else if (typeof rec['error'] === 'string') {
+            setError(rec['error'] as string);
+          } else if (typeof rec['message'] === 'string') {
+            setError(rec['message'] as string);
+          } else {
+            setError(String(err));
+          }
+        } else {
+          setError(String(err));
+        }
+      } catch (parseErr) {
+        console.error('Failed to parse search error', parseErr, err);
+        setError(String(err));
+      }
+      // rethrow so callers may handle if needed
       throw err;
     } finally {
       setIsFetching(false);

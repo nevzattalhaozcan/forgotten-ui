@@ -10,14 +10,16 @@ import MemberList from "../components/club/MemberList";
 import RoleGate from "../components/club/RoleGate";
 import type { ReviewTypeData, PollTypeData, AnnotationTypeData, PostSharingTypeData } from "../lib/posts";
 import Events from "../components/club/Events";
-import Reading from "../components/club/Reading";
 
 import Tabs from "../components/common/Tabs";
 
 import { getClub, type ClubApi } from "../lib/clubs";
+import { api } from "../lib/api";
 import { listClubPostSummaries, getPostComments, createPost, voteOnPoll, unvoteOnPoll } from "../lib/posts";
 import { listClubEvents, createEvent } from "../lib/events";
-import { assignBook, addReadingLog, type BookApi, type ReadingLogApi } from "../lib/books";
+import { assignBook, type BookApi } from "../lib/books";
+import BookSearch from "../components/books/BookSearch";
+import { useErrorModal } from "../context/ErrorModalContext";
 
 import { likePost, unlikePost } from "../lib/likes";
 import { createComment, deleteComment, likeComment, unlikeComment, isCommentLikedByUser, type CommentApi } from "../lib/comments";
@@ -76,6 +78,7 @@ export default function ClubDashboard() {
     // Loading & error
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { showError } = useErrorModal();
 
     // Enhanced club state
     const [club, setClub] = useState<ClubApi | null>(null);
@@ -83,7 +86,7 @@ export default function ClubDashboard() {
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [events, setEvents] = useState<ClubEvent[]>([]);
     const [books, setBooks] = useState<BookApi[]>([]);
-    const [readingLogs, setReadingLogs] = useState<ReadingLogApi[]>([]);
+    // readingLogs removed - simplified reading management uses assigned `books` and search
     const [clubRating, setClubRating] = useState<{ average: number; count: number } | null>(null);
 
     // Book and reading management
@@ -246,38 +249,44 @@ export default function ClubDashboard() {
 
                 // 7) Load reading assignments (this returns assignments with embedded `book`)
                 try {
-                    const res = await fetch(`/api/v1/clubs/${clubId}/reading`, { headers: { "Content-Type": "application/json" } });
-                    const assignments = await res.json();
+                    const assignments = await api<unknown[]>(`/api/v1/clubs/${clubId}/reading`);
                     if (Array.isArray(assignments)) {
-                        const booksFromAssignments: BookApi[] = assignments
-                            .filter((a): a is Record<string, unknown> => typeof a === 'object' && a !== null && 'book' in (a as any))
-                            .map((a) => {
-                                const book = (a as any).book ?? {};
-                                return {
-                                    id: book.id,
-                                    title: book.title || String(book.id || 'Unknown'),
-                                    author: book.author || '',
-                                    isbn: book.isbn,
-                                    pages: book.pages,
-                                    club_id: (a as any).club_id ?? clubId,
-                                    assigned_date: (a as any).start_date,
-                                    target_date: (a as any).due_date,
-                                    status: ((a as any).status || 'current') as any,
-                                    created_at: book.created_at || new Date().toISOString()
-                                } as BookApi;
+                        const booksFromAssignments: BookApi[] = [];
+                        for (const item of assignments) {
+                            if (!item || typeof item !== 'object') continue;
+                            const rec = item as Record<string, unknown>;
+                            const bookObj = rec['book'];
+                            if (!bookObj || typeof bookObj !== 'object') continue;
+                            const book = bookObj as Record<string, unknown>;
+
+                            const id = (book['id'] as number | string | undefined) ?? 0;
+                            const title = (book['title'] as string) ?? String(id);
+                            const author = (book['author'] as string) ?? '';
+                            const isbn = book['isbn'] as string | undefined;
+                            const pages = book['pages'] as number | undefined;
+                            const club_id_val = (rec['club_id'] as number | string | undefined) ?? clubId;
+                            const assigned_date = rec['start_date'] as string | undefined;
+                            const target_date = rec['due_date'] as string | undefined;
+                            const status = (rec['status'] as string | undefined) ?? 'current';
+                            const created_at = (book['created_at'] as string | undefined) ?? new Date().toISOString();
+
+                            booksFromAssignments.push({
+                                id,
+                                title,
+                                author,
+                                isbn,
+                                pages,
+                                club_id: club_id_val as number | string,
+                                assigned_date,
+                                target_date,
+                                status: status as BookApi['status'],
+                                created_at
                             });
+                        }
 
                         setBooks(booksFromAssignments);
 
-                        setReadingLogs(assignments.map((a) => ({
-                            id: (a as any).id,
-                            book_id: (a as any).book?.id ?? (a as any).book_id,
-                            user_id: (a as any).user_id ?? 'club',
-                            pages_read: (a as any).target_page ?? 0,
-                            note: (a as any).checkpoint ?? '',
-                            created_at: (a as any).start_date ?? new Date().toISOString(),
-                            user: (a as any).user
-                        })) as ReadingLogApi[]);
+                        // readingLogs are not used in the simplified UI; skip mapping
                     }
                 } catch (e) {
                     console.warn('Could not load club reading assignments:', e);
@@ -720,61 +729,92 @@ export default function ClubDashboard() {
                     )}
 
                     {tab === "reading" && (
-                        <Reading 
-                            books={books.map(book => ({
-                                id: String(book.id),
-                                title: book.title,
-                                author: book.author,
-                                isbn: book.isbn,
-                                pages: book.pages,
-                                assignedDate: book.assigned_date,
-                                targetDate: book.target_date,
-                                status: book.status
-                            }))}
-                            readingLogs={readingLogs.map(log => ({
-                                id: String(log.id),
-                                userId: String(log.user_id),
-                                userName: log.user?.first_name && log.user?.last_name
-                                    ? `${log.user.first_name} ${log.user.last_name}`
-                                    : log.user?.username || "Anonymous",
-                                bookId: String(log.book_id),
-                                pagesRead: log.pages_read,
-                                totalPages: 0, // Not available in API, would need book lookup
-                                note: log.note,
-                                createdAtISO: log.created_at
-                            }))}
-                            userRole={userRole}
-                            onAssignBook={async (title, author, pages, targetDate) => {
-                                try {
-                                    const newBook = await assignBook({
-                                        club_id: clubId!,
-                                        title,
-                                        author,
-                                        pages,
-                                        target_date: targetDate,
-                                        status: "current"
-                                    });
-                                    
-                                    setBooks(prev => [newBook, ...prev]);
-                                } catch (error) {
-                                    console.error("Failed to assign book:", error);
-                                }
-                            }}
-                            onAddReadingLog={async (bookId, pagesRead, note) => {
-                                try {
-                                    const newLog = await addReadingLog({
-                                        club_id: clubId!,
-                                        book_id: bookId,
-                                        pages_read: pagesRead,
-                                        note
-                                    });
-                                    
-                                    setReadingLogs(prev => [newLog, ...prev]);
-                                } catch (error) {
-                                    console.error("Failed to add reading log:", error);
-                                }
-                            }}
-                        />
+                        <div className="space-y-4">
+                            <Card title="Find & assign a book" variant="elevated">
+                                <div className="space-y-3">
+                                    <BookSearch
+                                        minChars={2}
+                                        debounceMs={300}
+                                        onSelect={async (payload) => {
+                                            type BookSelection = {
+                                                id?: number | string;
+                                                external_id?: string;
+                                                source?: string;
+                                                title?: string;
+                                                author?: string;
+                                            };
+
+                                            const sel = payload as BookSelection;
+                                            try {
+                                                if (!clubId) return;
+
+                                                if (sel.id) {
+                                                    // If we have a local id, use assignBook by id via create flow
+                                                    // Our assignBook helper expects title/author; prefer to create/assign by title
+                                                    const newBook = await assignBook({
+                                                        club_id: clubId!,
+                                                        title: sel.title ?? String(sel.id),
+                                                        author: sel.author ?? '',
+                                                        pages: 0,
+                                                        status: 'current'
+                                                    });
+                                                    setBooks(prev => [newBook, ...prev]);
+                                                } else {
+                                                    // External book: fall back to title/author assignment
+                                                        const newBook = await assignBook({
+                                                            club_id: clubId!,
+                                                            title: sel.title ?? 'Untitled',
+                                                            author: sel.author ?? '',
+                                                            pages: 0,
+                                                            status: 'current'
+                                                        });
+                                                        setBooks(prev => [newBook, ...prev]);
+                                                }
+                                            } catch (err) {
+                                                console.error('Failed to assign selected book:', err);
+                                                // Try to extract a useful message from error
+                                                let message = 'Failed to assign selected book';
+                                                try {
+                                                    if (err && typeof err === 'object' && err !== null) {
+                                                        // Try common shapes without using `any`
+                                                        const maybe = err as Record<string, unknown>;
+                                                        const e1 = maybe['error'];
+                                                        const e2 = maybe['detail'] && typeof maybe['detail'] === 'object' ? (maybe['detail'] as Record<string, unknown>)['message'] : undefined;
+                                                        const e3 = maybe['message'];
+
+                                                        if (typeof e1 === 'string') message = e1;
+                                                        else if (typeof e2 === 'string') message = e2;
+                                                        else if (typeof e3 === 'string') message = e3;
+                                                    }
+                                                } catch {
+                                                    // ignore parsing errors
+                                                }
+
+                                                showError(message, { title: 'Could not assign book' });
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </Card>
+
+                            <Card title="Assigned / Club Books" variant="elevated">
+                                <div className="space-y-2">
+                                    {books.length === 0 ? (
+                                        <div className="text-sm text-gray-500">No books assigned to this club yet.</div>
+                                    ) : (
+                                        books.map(b => (
+                                            <div key={String(b.id)} className="flex items-center gap-3 p-2 border rounded">
+                                                <div className="flex-1">
+                                                    <div className="font-medium">{b.title}</div>
+                                                    <div className="text-xs text-gray-600">{b.author}</div>
+                                                </div>
+                                                <div className="text-xs text-gray-500">{b.status}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
                     )}
 
                     {tab === "discussions" && (
