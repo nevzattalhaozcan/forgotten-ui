@@ -17,7 +17,7 @@ import Tabs from "../components/common/Tabs";
 import { getClub, type ClubApi } from "../lib/clubs";
 import { listClubPostSummaries, getPostComments, createPost, voteOnPoll, unvoteOnPoll } from "../lib/posts";
 import { listClubEvents, createEvent } from "../lib/events";
-import { listClubBooks, assignBook, addReadingLog, listReadingLogs, type BookApi, type ReadingLogApi } from "../lib/books";
+import { assignBook, addReadingLog, type BookApi, type ReadingLogApi } from "../lib/books";
 
 import { likePost, unlikePost } from "../lib/likes";
 import { createComment, deleteComment, likeComment, unlikeComment, isCommentLikedByUser, type CommentApi } from "../lib/comments";
@@ -110,6 +110,8 @@ export default function ClubDashboard() {
     };
 
     const userRole = getUserRole();
+
+    
 
     // clubId comes from useParams
     // Member management functions (stub for now - not implemented in backend)
@@ -242,14 +244,44 @@ export default function ClubDashboard() {
                     });
                 }
 
-                // 7) Load books and reading logs
-                const [booksData, readingLogsData] = await Promise.all([
-                    listClubBooks(),
-                    listReadingLogs(clubId)
-                ]);
-                
-                setBooks(booksData);
-                setReadingLogs(readingLogsData);
+                // 7) Load reading assignments (this returns assignments with embedded `book`)
+                try {
+                    const res = await fetch(`/api/v1/clubs/${clubId}/reading`, { headers: { "Content-Type": "application/json" } });
+                    const assignments = await res.json();
+                    if (Array.isArray(assignments)) {
+                        const booksFromAssignments: BookApi[] = assignments
+                            .filter((a): a is Record<string, unknown> => typeof a === 'object' && a !== null && 'book' in (a as any))
+                            .map((a) => {
+                                const book = (a as any).book ?? {};
+                                return {
+                                    id: book.id,
+                                    title: book.title || String(book.id || 'Unknown'),
+                                    author: book.author || '',
+                                    isbn: book.isbn,
+                                    pages: book.pages,
+                                    club_id: (a as any).club_id ?? clubId,
+                                    assigned_date: (a as any).start_date,
+                                    target_date: (a as any).due_date,
+                                    status: ((a as any).status || 'current') as any,
+                                    created_at: book.created_at || new Date().toISOString()
+                                } as BookApi;
+                            });
+
+                        setBooks(booksFromAssignments);
+
+                        setReadingLogs(assignments.map((a) => ({
+                            id: (a as any).id,
+                            book_id: (a as any).book?.id ?? (a as any).book_id,
+                            user_id: (a as any).user_id ?? 'club',
+                            pages_read: (a as any).target_page ?? 0,
+                            note: (a as any).checkpoint ?? '',
+                            created_at: (a as any).start_date ?? new Date().toISOString(),
+                            user: (a as any).user
+                        })) as ReadingLogApi[]);
+                    }
+                } catch (e) {
+                    console.warn('Could not load club reading assignments:', e);
+                }
 
             } catch (e: unknown) {
                 console.error("Club dashboard load error:", e);
